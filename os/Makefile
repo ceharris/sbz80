@@ -13,8 +13,8 @@ PORT=/dev/cu.usbmodem14101
 SPEED=115200
 
 MODULES=lomem.rel \
-	init.rel \
 	post.rel \
+	init.rel \
 	rpeek.rel \
 	bnksel.rel \
 	do.rel \
