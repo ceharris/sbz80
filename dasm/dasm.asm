@@ -648,9 +648,9 @@ dasm_p0_s1_10:
 		; Page 0, Section 2
 		;-------------------
 dasm_p0_s2:
-		push hl
+		push de
 		push ix
-		pop hl
+		pop de
 
 		; is it SUB r?
 		ld c,a				; save row and register bits
@@ -717,15 +717,15 @@ dasm_p0_s2_r47:
 		jr c,dasm_p0_s2_r67
 
 		rla
-		ld a,op_AND			; ---- AND ----
+		ld a,op_AND			; ---- AND r ----
 		jr nc,dasm_p0_s2_done
-		ld a,op_XOR			; ---- XOR ----
+		ld a,op_XOR			; ---- XOR r ----
 		jr dasm_p0_s2_done
 dasm_p0_s2_r67:
 		rla
-		ld a,op_OR			; ---- OR ----
+		ld a,op_OR			; ---- OR r ----
 		jr nc,dasm_p0_s2_done
-		ld a,op_CP			; ---- CP ----
+		ld a,op_CP			; ---- CP r ----
 		jr dasm_p0_s2_done
 
 		;----------------
@@ -748,9 +748,9 @@ dasm_p0_s2_r2:
 		ld a,op_SUB
 
 dasm_p0_s2_done:
-		push hl
+		push de
 		pop ix
-		pop hl
+		pop de
 		ld (ix+st_inst_opcode),a
 		ld (ix+st_inst_argc),c
 		jp dasm_page0_done
@@ -1160,6 +1160,104 @@ dasm_p0_s3_c5_r7:
 		; Page 0, Section 3, Column 6
 		;-----------------------------
 dasm_p0_s3_c6:
+		push de
+		push ix
+		pop de
+
+		ld a,c				; recover row bits
+
+		; is it SUB n?
+		and 0xe0	
+		cp 0x40
+		jr z,dasm_p0_s3_c6_r2		; handle SUB as special case
+		ld a,c				; recover row bits
+
+		; now split into rows
+		rla
+		jr nc,dasm_p0_s3_c6_r03
+		jr dasm_p0_s3_c6_r47
+
+dasm_p0_s3_c6_r03:
+		ld bc,st_inst_argx
+		add ix,bc			; point to arg x struct		
+		ld c,a				; save row bits
+
+		ld a,reg_A			; A is the target register
+		call mkarg_register
+		ld a,c				; recover row bits
+
+		ld bc,st_arg_size
+		add ix,bc			; point to arg y struct
+
+		ld b,a				; save row bits
+		ld c,(hl)			; get immediate argument
+		inc hl
+		call mkarg_immediate
+		ld a,b				; recover row bits
+		
+		ld c,2				; argument count
+		rla
+		jr c,dasm_p0_s3_c6_r3		; just 3; 2 is a special case
+
+		rla		
+		ld a,op_ADD			; ---- ADD A,n ----
+		jr nc,dasm_p0_s3_c6_done
+		ld a,op_ADC			; ---- ADC A,n ----
+		jr dasm_p0_s3_c6_done
+
+dasm_p0_s3_c6_r3:
+		ld a,op_SBC			; ---- SBC A,n ----
+		jr dasm_p0_s3_c6_done
+
+dasm_p0_s3_c6_r47:
+		ld bc,st_inst_argx
+		add ix,bc			; point to arg x struct
+
+		ld b,a				; save row bits
+		ld c,(hl)			; get immediate argument
+		inc hl
+		call mkarg_immediate
+		ld a,b				; recover row bits
+		
+		ld c,1				; argument count
+		rla
+		jr c,dasm_p0_s3_c6_r67
+
+		rla
+		ld a,op_AND			; ---- AND n ----
+		jr nc,dasm_p0_s3_c6_done
+		ld a,op_XOR			; ---- XOR n ----
+		jr dasm_p0_s3_c6_done
+dasm_p0_s3_c6_r67:
+		rla
+		ld a,op_OR			; ---- OR n ----
+		jr nc,dasm_p0_s3_c6_done
+		ld a,op_CP			; ---- CP n ----
+		jr dasm_p0_s3_c6_done
+
+		;----------------
+		; SUB n
+		;----------------
+dasm_p0_s3_c6_r2:
+		ld bc,st_inst_argx
+		add ix,bc			; point to arg x struct
+
+		ld b,a				; save row bits
+		ld c,(hl)			; get immediate argument
+		inc hl
+		call mkarg_immediate
+		ld a,b				; recover row bits
+		
+		ld c,1				; argument count
+		ld a,op_SUB
+
+dasm_p0_s3_c6_done:
+		push de
+		pop ix
+		pop de
+		ld (ix+st_inst_opcode),a
+		ld (ix+st_inst_argc),c
+		jp dasm_page0_done
 
 		;-----------------------------
 		; Page 0, Section 3, Column 7

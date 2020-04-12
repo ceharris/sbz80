@@ -1,4 +1,5 @@
 test:
+
 		; page 0, section 0, column 0
 		nop 
 		ex af,af'
@@ -263,6 +264,15 @@ test:
 		push de
 		push hl	
 		push af
+		; page 0 section 3 column 6
+		add a,0
+		adc a,1
+		sub 2
+		sbc a,3
+		and 4
+		xor 5
+		or 6
+		cp 7
 		; page 0 section 3 column 7
 		rst 0x0
 		rst 0x8
