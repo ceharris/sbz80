@@ -122,6 +122,10 @@ arg_is_immediate:
 		jr nz,arg_is_extended_immediate
 
 		ld a,c
+		and mask_indirect
+		jr nz,arg_is_indirect_immediate
+
+		ld a,c
 		and mask_disp
 		jr nz,arg_is_displacement
 	
@@ -184,7 +188,7 @@ arg_is_indexed_indirect:
 arg_is_extended_immediate:
 		ld a,c
 		and mask_indirect
-		jr nz,arg_is_indirect_immediate
+		jr nz,arg_is_indirect_extended
 		
 		; arg is 16-bit immediate
 		ld c,(ix+st_arg_v)	; get immediate value
@@ -192,13 +196,24 @@ arg_is_extended_immediate:
 		call to_hex16		; convert to ASCII hexadecimal
 		jr arg_to_string_done
 
-arg_is_indirect_immediate:
+arg_is_indirect_extended:
 		ld a,'('
 		ld (de),a
 		inc de
 		ld c,(ix+st_arg_v)	; get immediate value
 		ld b,(ix+st_arg_v+1)
 		call to_hex16		; convert to ASCII hexadecimal
+		ld a,')'
+		ld (de),a
+		inc de
+		jr arg_to_string_done
+
+arg_is_indirect_immediate:
+		ld a,'('
+		ld (de),a
+		inc de
+		ld c,(ix+st_arg_v)	; get immediate value
+		call to_hex8		; convert to ASCII hexadecimal
 		ld a,')'
 		ld (de),a
 		inc de

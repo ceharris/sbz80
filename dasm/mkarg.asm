@@ -285,7 +285,7 @@ mkarg_implicit_literal:
 		ret
 
         ;---------------------------------------------------------------
-        ; mkarg_implicit_address:
+        ; mkarg_implicit_addr:
         ;
         ; Makes an argument structure for an implicit address operand
         ; (e.g. for the RST instruction).
@@ -295,7 +295,7 @@ mkarg_implicit_literal:
         ; On return:
         ;       all registers preserved
         ;
-mkarg_implicit_address:
+mkarg_implicit_addr:
                 ld (ix+st_arg_flags),mask_implicit | mask_flag
                 ld (ix+st_arg_v),a
                 ret
