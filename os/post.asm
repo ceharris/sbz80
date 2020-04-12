@@ -1,7 +1,8 @@
 		name post
-
+		extern init
 		include memory.asm
 		include ports.asm
+
 mem_pattern	equ	0x55
 
 	;--------------------------------------------------------------
@@ -89,7 +90,7 @@ post_mem60:
                 ld (hl),0
                 ldir
 		exx
-		jp (hl)			; return to caller
+		jp init
 
 post_fail:
 		halt
