@@ -86,7 +86,7 @@ dasm_page0:
 
 dasm_page0_upper:
 		rla
-		jr nc,dasm_p0_s2		; opcodes 0x80-0xbf
+		jp nc,dasm_p0_s2		; opcodes 0x80-0xbf
 		jr dasm_p0_s3			; opcodes 0xc0-0xff
 
 dasm_p0_s0:
@@ -121,8 +121,6 @@ dasm_p0_s0_c67:
 		jp nc,dasm_p0_s0_c6
 		jp dasm_p0_s0_c7
 
-		
-dasm_p0_s2:
 dasm_p0_s3:
 		halt
 		halt
@@ -625,9 +623,6 @@ dasm_p0_s1_10:
 
 		ld bc,st_inst_argx
 		add ix,bc			; point to arg x struct		
-
-	
-		
 		ld c,a				; save register bits
 
 		; get target register into lowest 3 bits
@@ -647,7 +642,119 @@ dasm_p0_s1_10:
 		add ix,bc			; point to arg y struct
 		call mkarg_register_r
 		jp dasm_page0_done
-	
+
+		;---------------------------------------------
+		; Section 2: ADD a,r; ADC a,r; SUB r; SBC a,r
+		;	     AND r; XOR r; OR r; CP r
+		;---------------------------------------------
+dasm_p0_s2:
+		push hl
+		push ix
+		pop hl
+
+		; is it SUB r?
+		ld c,a				; save row and register bits
+		and 0xe0	
+		cp 0x40
+		jr z,dasm_p0_s2_r2		; handle SUB as special case
+		ld a,c				; recover row and register bits
+
+		; now split into rows
+		rla
+		jr nc,dasm_p0_s2_r03
+		jr dasm_p0_s2_r47
+
+dasm_p0_s2_r03:
+		ld bc,st_inst_argx
+		add ix,bc			; point to arg x struct		
+		ld c,a				; save row and register bits
+
+		ld a,reg_A			; A is the target register
+		call mkarg_register
+		ld a,c				; recover row and register bits
+
+		ld bc,st_arg_size
+		add ix,bc			; point to arg y struct
+
+		; get source register into lowest 3 bits of A
+		ld c,a				; save row bits
+		rra
+		rra
+		rra
+		and 0x7
+		call mkarg_register_r
+		ld a,c				; recover row bits
+		
+		ld c,2				; argument count
+		rla
+		jr c,dasm_p0_s2_r3		; just 3; 2 is a special case
+
+		rla		
+		ld a,op_ADD			; ---- ADD A,r ----
+		jr nc,dasm_p0_s2_done
+		ld a,op_ADC			; ---- ADC A,r ----
+		jr dasm_p0_s2_done
+
+dasm_p0_s2_r3:
+		ld a,op_SBC			; ---- SBC A,r ----
+		jr dasm_p0_s2_done
+
+		;----------------
+		; SUB r
+		;----------------
+dasm_p0_s2_r2:
+		ld bc,st_inst_argx
+		add ix,bc			; point to arg x struct
+
+		; get source register into lowest 3 bits of A
+		ld c,a				; save row bits
+		rra
+		rra
+		rra
+		and 0x7
+		call mkarg_register_r
+		ld a,c				; recover row bits
+		
+		ld c,1				; argument count
+		ld a,op_SUB
+		jr dasm_p0_s2_done
+
+dasm_p0_s2_r47:
+		ld bc,st_inst_argx
+		add ix,bc			; point to arg x struct
+
+		; get source register into lowest 3 bits of A
+		ld c,a				; save row bits
+		rra
+		rra
+		rra
+		and 0x7
+		call mkarg_register_r
+		ld a,c				; recover row bits
+		
+		ld c,1				; argument count
+		rla
+		jr c,dasm_p0_s2_r67
+
+		rla
+		ld a,op_AND			; ---- AND ----
+		jr nc,dasm_p0_s2_done
+		ld a,op_XOR			; ---- XOR ----
+		jr dasm_p0_s2_done
+dasm_p0_s2_r67:
+		rla
+		ld a,op_OR			; ---- OR ----
+		jr nc,dasm_p0_s2_done
+		ld a,op_CP			; ---- CP ----
+
+dasm_p0_s2_done:
+		push hl
+		pop ix
+		pop hl
+		ld (ix+st_inst_opcode),a
+		ld (ix+st_inst_argc),c
+		jp dasm_page0_done
+
 dasm_page0_done:
 		pop bc
 		pop ix

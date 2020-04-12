@@ -1,7 +1,6 @@
 test:
 		; page 0, section 0, column 0
-		nop
-		ex af,af'
+		nop ex af,af'
 		djnz test
 		jr test
 		jr c,test
@@ -133,5 +132,77 @@ test:
 		ld a,l
 		ld a,(hl)
 		ld a,a
+		; page 0 section 3 row 0
+		add a,b
+		add a,c
+		add a,d
+		add a,e
+		add a,h	
+		add a,l
+		add a,(hl)
+		add a,a
+		; page 0 section 3 row 1
+		adc a,b
+		adc a,c
+		adc a,d
+		adc a,e
+		adc a,h	
+		adc a,l
+		adc a,(hl)
+		adc a,a
+		; page 0 section 3 row 2
+		sub b
+		sub c
+		sub d
+		sub e
+		sub h	
+		sub l
+		sub (hl)
+		sub a
+		; page 0 section 3 row 3
+		sbc a,b
+		sbc a,c
+		sbc a,d
+		sbc a,e
+		sbc a,h	
+		sbc a,l
+		sbc a,(hl)
+		sbc a,a
+		; page 0 section 3 row 4
+		and b
+		and c
+		and d
+		and e
+		and h	
+		and l
+		and (hl)
+		and a
+		; page 0 section 3 row 5
+		xor b
+		xor c
+		xor d
+		xor e
+		xor h	
+		xor l
+		xor (hl)
+		xor a
+		; page 0 section 3 row 6
+		or b
+		or c
+		or d
+		or e
+		or h	
+		or l
+		or (hl)
+		or a
+		; page 0 section 3 row 7
+		cp b
+		cp c
+		cp d
+		cp e
+		cp h	
+		cp l
+		cp (hl)
+		cp a
 
 		nop
