@@ -23,6 +23,7 @@ init::
 		ld i,a
 
 		call inivec
-		call demo	
+		call demo
+		jp 0
 
 		end
