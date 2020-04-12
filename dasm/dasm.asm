@@ -82,7 +82,7 @@ dasm_page0:
 
 		rla
 		jr nc,dasm_p0_s0		; opcodes 0x00-0x3f
-		jr dasm_p0_s1			; opcodes 0x40-0x7f
+		jp dasm_p0_s1			; opcodes 0x40-0x7f
 
 dasm_page0_upper:
 		rla
@@ -121,7 +121,7 @@ dasm_p0_s0_c67:
 		jp nc,dasm_p0_s0_c6
 		jp dasm_p0_s0_c7
 
-dasm_p0_s1:
+		
 dasm_p0_s2:
 dasm_p0_s3:
 		halt
@@ -537,7 +537,7 @@ dasm_p0_s0_c3_re:
 		ld bc,st_inst_argx
 		add ix,bc			; point to arg x struc
 		call mkarg_register_ss		; configure register ss arg
-		jr dasm_page0_done
+		jp dasm_page0_done
 
 		;----------------
 		; DEC ss
@@ -603,6 +603,51 @@ dasm_p0_s0_c6:
 		call mkarg_immediate
 		jp dasm_page0_done		
 
+		;----------------
+		; HALT
+		;----------------
+dasm_p0_s1:
+		; is source and dest (HL)?  (A=rrrqqqXX)
+		and 0xfc			; discard lowest two bits
+		cp 0xd8
+		jr nz,dasm_p0_s1_10
+
+		ld (ix+st_inst_opcode),op_HALT
+		ld (ix+st_inst_argc),0
+		jp dasm_page0_done
+
+		;----------------
+		; LD r,q
+		;----------------
+dasm_p0_s1_10:
+		ld (ix+st_inst_opcode),op_LD
+		ld (ix+st_inst_argc),2
+
+		ld bc,st_inst_argx
+		add ix,bc			; point to arg x struct		
+
+	
+		
+		ld c,a				; save register bits
+
+		; get target register into lowest 3 bits
+		rlca 
+		rlca 
+		rlca 
+		and 0x7				; just the register bits
+		call mkarg_register_r
+
+		ld a,c				; recover register bits
+		; move source register into lowest 3 bits
+		rra
+		rra
+		and 0x7				; just the register bits
+
+		ld bc,st_arg_size
+		add ix,bc			; point to arg y struct
+		call mkarg_register_r
+		jp dasm_page0_done
+	
 dasm_page0_done:
 		pop bc
 		pop ix
