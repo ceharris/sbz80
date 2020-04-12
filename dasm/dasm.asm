@@ -648,9 +648,7 @@ dasm_p0_s1_10:
 		; Page 0, Section 2
 		;-------------------
 dasm_p0_s2:
-		push de
-		push ix
-		pop de
+		push ix				; preserve IX
 
 		; is it SUB r?
 		ld c,a				; save row and register bits
@@ -748,9 +746,7 @@ dasm_p0_s2_r2:
 		ld a,op_SUB
 
 dasm_p0_s2_done:
-		push de
-		pop ix
-		pop de
+		pop ix				; recover IX
 		ld (ix+st_inst_opcode),a
 		ld (ix+st_inst_argc),c
 		jp dasm_page0_done
@@ -938,7 +934,7 @@ dasm_p0_s3_c3:
 		jr c,dasm_p0_s3_c3_r23
 		rla
 		jr nc,dasm_p0_s3_c3_r0
-		jr dasm_p0_s3_c3_r1
+		jp dasm_page_cb
 
 dasm_p0_s3_c3_r23:
 		rla
@@ -1160,9 +1156,7 @@ dasm_p0_s3_c5_r7:
 		; Page 0, Section 3, Column 6
 		;-----------------------------
 dasm_p0_s3_c6:
-		push de
-		push ix
-		pop de
+		push ix				; preserve IX
 
 		ld a,c				; recover row bits
 
@@ -1252,9 +1246,7 @@ dasm_p0_s3_c6_r2:
 		ld a,op_SUB
 
 dasm_p0_s3_c6_done:
-		push de
 		pop ix
-		pop de
 		ld (ix+st_inst_opcode),a
 		ld (ix+st_inst_argc),c
 		jp dasm_page0_done
@@ -1280,6 +1272,113 @@ dasm_p0_s3_c7:
 		call mkarg_implicit_addr
 		jp dasm_page0_done
 
+dasm_page_cb:
+		ld a,(hl)			; get next opcode
+		inc hl
+
+		; divide into sections
+		rla
+		jr c,dasm_pcb_s23
+		rla
+		jr nc,dasm_pcb_s0
+		ld c,a				; save row and register bits
+		ld a,op_BIT			; ---- BIT ----
+		jr dasm_pcb_s13
+dasm_pcb_s23:
+		rla
+		ld c,a				; save row and register bits
+		ld a,op_RES			; ---- RES ----
+		jr nc,dasm_pcb_s13
+		ld a,op_SET			; ---- SET ----
+		jr c,dasm_pcb_s13		
+		
+		;--------------------
+		; Page CB, Section 0 
+		;--------------------
+dasm_pcb_s0:
+		push ix				; preserve IX
+
+		ld bc,st_inst_argx
+		add ix,bc			; point to arg x struct
+
+		; get register argument into the 3 lowest bits of A
+		ld c,a				; save row bits
+		rra
+		rra
+		and 0x7
+
+		call mkarg_register_r
+		ld a,c				; recover row bits
+		
+		; now split into rows
+		rla
+		jr c,dasm_pcb_s0_r47
+		rla
+		jr c,dasm_pcb_s0_r23
+		rla
+		ld a,op_RLC			; ---- RLC ----
+		jr nc,dasm_pcb_s0_done
+		ld a,op_RRC			; ---- RRC ----
+		jr dasm_pcb_s0_done
+dasm_pcb_s0_r23:
+		rla
+		ld a,op_RL			; ---- RL ----
+		jr nc,dasm_pcb_s0_done
+		ld a,op_RR			; ---- RR ----
+		jr dasm_pcb_s0_done
+dasm_pcb_s0_r47:
+		rla
+		jr c,dasm_pcb_s0_r67
+		rla
+		ld a,op_SLA			; ---- SLA ----
+		jr nc,dasm_pcb_s0_done
+		ld a,op_SRA			; ---- SRA ----
+		jr dasm_pcb_s0_done
+dasm_pcb_s0_r67:
+		rla
+		ld a,op_SLL			; ---- SLL ----
+		jr nc,dasm_pcb_s0_done
+		ld a,op_SRL			; ---- SRL ----
+
+dasm_pcb_s0_done:
+		pop ix
+		ld (ix+st_inst_opcode),a
+		ld (ix+st_inst_argc),1
+
+		jp dasm_page0_done
+
+		;-----------------------
+		; Page CB, Sections 1-3
+		;-----------------------
+dasm_pcb_s13:
+		ld (ix+st_inst_opcode),a
+		ld (ix+st_inst_argc),2
+
+		ld a,c				; save row and register bits
+
+		ld bc,st_inst_argx
+		add ix,bc			; point to arg x struct
+
+		; put bit number into lowest 3 bits of A
+		ld c,a				; save row and register bits
+		rlca
+		rlca
+		rlca
+		and 0x7
+		call mkarg_implicit_literal
+		ld a,c				; recover register bits
+
+		ld bc,st_arg_size
+		add ix,bc			; point to arg y struct
+
+		; put register into lowest 3 bits of A
+		rra
+		rra		
+		and 0x7	
+		call mkarg_register_r
+
+		jp dasm_page0_done
+	
 dasm_page0_noarg:
 		ld (ix+st_inst_opcode),a	; mnemomic symbol index
 		ld (ix+st_inst_argc),0		; no arguments

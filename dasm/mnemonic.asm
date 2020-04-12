@@ -61,10 +61,11 @@ op_SBC		equ 59
 op_SCF		equ 60
 op_SET		equ 61
 op_SLA		equ 62
-op_SRA		equ 63
-op_SRL		equ 64
-op_SUB		equ 65
-op_XOR		equ 66
+op_SLL		equ 63
+op_SRA		equ 64
+op_SRL		equ 65
+op_SUB		equ 66
+op_XOR		equ 67
 
 m_adc		db 3,"ADC"
 m_add		db 3,"ADD"
@@ -129,6 +130,7 @@ m_sbc		db 3,"SBC"
 m_scf		db 3,"SCF"
 m_set		db 3,"SET"
 m_sla		db 3,"SLA"
+m_sll		db 3,"SLL"
 m_sra		db 3,"SRA"
 m_srl		db 3,"SRL"
 m_sub		db 3,"SUB"
@@ -198,6 +200,7 @@ m_table:
 		dw m_scf
 		dw m_set
 		dw m_sla
+		dw m_sll
 		dw m_sra
 		dw m_srl
 		dw m_sub
