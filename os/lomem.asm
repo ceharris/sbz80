@@ -1,5 +1,6 @@
 		name lomem
 
+		extern post
 		extern init
 		extern rpeek
 		extern vrst10
@@ -15,7 +16,7 @@
 	; RST 0 vector (system reset)
 	;
 		org 0x0
-		jp init
+		jp post
 
 	;--------------------------------------------------------------
 	; RST 0x08 vector (reserved)
