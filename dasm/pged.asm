@@ -93,13 +93,13 @@ dasm_ped_s1_c0:
 		cp reg_indirect		
 		jp z,dasm_ped_unsup
 		
-		call mkarg_register_r
+		call mkregr
 
 		ld bc,st_arg_size
 		add ix,bc			; point to arg y struct
 
 		ld a,reg_C
-		call mkarg_register
+		call mkreg
 		set arg_indirect,(ix+st_arg_flags)
 		
 		jp dasm_page0_done
@@ -119,7 +119,7 @@ dasm_ped_s1_c1:
 
 		ld c,a				; save register bits
 		ld a,reg_C
-		call mkarg_register
+		call mkreg
 		set arg_indirect,(ix+st_arg_flags)
 
 		ld a,c				; recover register bits
@@ -137,7 +137,7 @@ dasm_ped_s1_c1:
 		cp reg_indirect		
 		jp z,dasm_ped_unsup
 		
-		call mkarg_register_r
+		call mkregr
 
 		jp dasm_page0_done
 
@@ -166,7 +166,7 @@ dasm_ped_s1_c2_20:
 
 		ld c,a				; save register bits
 		ld a,reg_HL
-		call mkarg_register
+		call mkreg
 
 		ld a,c				; recover register bits
 
@@ -177,7 +177,7 @@ dasm_ped_s1_c2_20:
 		rlca
 		rlca
 		and 0x3
-		call mkarg_register_ss
+		call mkregss
 		
 		jp dasm_page0_done
 
@@ -207,7 +207,7 @@ dasm_ped_s1_c3:
 		inc hl
 		ld b,(hl)
 		inc hl
-		call mkarg_indirect_addr
+		call mkiadd
 
 		ld bc,st_arg_size
 		add ix,bc			; point to arg y struct
@@ -216,7 +216,7 @@ dasm_ped_s1_c3:
 		rlca
 		rlca
 		and 0x3
-		call mkarg_register_ss
+		call mkregss
 
 		jp dasm_page0_done
 
@@ -232,7 +232,7 @@ dasm_ped_s1_c3_10:
 		rlca
 		rlca
 		and 0x3
-		call mkarg_register_ss
+		call mkregss
 
 		ld bc,st_arg_size
 		add ix,bc			; point to arg y struct
@@ -242,7 +242,7 @@ dasm_ped_s1_c3_10:
 		inc hl
 		ld b,(hl)
 		inc hl
-		call mkarg_indirect_addr
+		call mkiadd
 
 		jp dasm_page0_done
 
@@ -306,7 +306,7 @@ dasm_ped_s1_c6_10:
 	
 		ld bc,st_inst_argx
 		add ix,bc
-		call mkarg_implicit_literal
+		call mkilit
 
 		jp dasm_page0_done
 
@@ -352,13 +352,13 @@ dasm_ped_s1_c7_10:
 		ld bc,st_inst_argx
 		add ix,bc			; point to arg x struct
 		
-		call mkarg_register
+		call mkreg
 
 		ld bc,st_arg_size
 		add ix,bc			; point to arg y struct
 	
 		ld a,reg_A
-		call mkarg_register
+		call mkreg
 
 		jp dasm_page0_done
 
@@ -374,13 +374,13 @@ dasm_ped_s1_c7_20:
 
 		ld c,a				; save source register
 		ld a,reg_A
-		call mkarg_register
+		call mkreg
 		ld a,c				; recover source register
 
 		ld bc,st_arg_size
 		add ix,bc
 
-		call mkarg_register
+		call mkreg
 
 		jp dasm_page0_done
 		

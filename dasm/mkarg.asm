@@ -1,5 +1,16 @@
+		name mkarg
+
+		include defs.asm
+	
+		extern flag_table
+		extern reg_r_table
+		extern reg_qq_table
+		extern reg_ss_table
+		
+		cseg
+
 	;---------------------------------------------------------------
-	; mkarg_flag:
+	; mkflag:
 	;
 	; Makes an argument structure for flag `f`.
 	;
@@ -12,7 +23,7 @@
 	;	all registers except AF are preserved
 	;
 
-mkarg_flag:
+mkflag::
 		push bc
 		push hl
 		
@@ -40,7 +51,7 @@ mkarg_flag:
 		ret
 
 	;---------------------------------------------------------------
-	; mkarg_register_r:
+	; mkregr:
 	;
 	; Makes an argument structure for register `r`.
 	;
@@ -55,12 +66,12 @@ mkarg_flag:
 	;	HL is incremented if the instruction is indexed
 	;	all registers except AF are preserved
 	;	
-mkarg_register_r:
+mkregr::
 		push bc
 		
 		; is `r` the indirect register?
 		cp reg_indirect
-		jr nz,mkarg_register_r_10
+		jr nz,mkregr_10
 		
 		ld (ix+st_arg_flags),mask_register|mask_indirect
 		ld a,(iy+st_dasm_preg)		; get pointer register symbol
@@ -68,14 +79,14 @@ mkarg_register_r:
 
 		; set indexed flag and displacement if indexed instruction
 		cp reg_HL
-		jr z,mkarg_register_r_20
+		jr z,mkregr_20
 		set arg_indexed,(ix+st_arg_flags)
 		ld a,(hl)
 		inc hl
 		ld (ix+st_arg_disp),a		; save displacement
-		jr mkarg_register_r_20
+		jr mkregr_20
 
-mkarg_register_r_10:
+mkregr_10:
 		ld b,a				; save specified register
 
 		; get register symbol index from lookup table
@@ -94,12 +105,12 @@ mkarg_register_r_10:
 		ld (ix+st_arg_flags),mask_register
 		ld (ix+st_arg_v),a
 
-mkarg_register_r_20:
+mkregr_20:
 		pop bc
 		ret		
 
 	;---------------------------------------------------------------
-	; mkarg_register_qq:
+	; mkregqq:
 	;
 	; Makes an argument structure for register pair `qq`.
 	;
@@ -112,14 +123,14 @@ mkarg_register_r_20:
 	;	argument structure filled in
 	;	all registers except AF are preserved
 	;	
-mkarg_register_qq:
+mkregqq::
 		push bc
 		push hl
 		ld hl,reg_qq_table	
-		jr mkarg_register_rr
+		jr mkregrr
 
 	;---------------------------------------------------------------
-	; mkarg_register_ss:
+	; mkregss:
 	;
 	; Makes an argument structure for register pair `ss`.
 	;
@@ -132,21 +143,20 @@ mkarg_register_qq:
 	;	argument structure filled in
 	;	all registers except AF are preserved
 	;	
-mkarg_register_ss:
+mkregss::
 		push bc
 		push hl
 		ld hl,reg_ss_table	
 
-mkarg_register_rr:
-
+mkregrr:
 		; is `rr` the pointer register?
 		cp reg_pointer
-		jr nz,mkarg_register_rr_10
+		jr nz,mkregrr_10
 		
 		ld a,(iy+st_dasm_preg)		; get pointer register symbol
-		jr mkarg_register_rr_20	
+		jr mkregrr_20	
 
-mkarg_register_rr_10:
+mkregrr_10:
 		ld b,a				; save specified register
 		
 		; get register symbol index from lookup table
@@ -159,7 +169,7 @@ mkarg_register_rr_10:
 		ld h,a				; HL -> entry for register `r`
 		ld a,(hl)			; get symbol index
 
-mkarg_register_rr_20:
+mkregrr_20:
 		ld (ix+st_arg_flags),mask_register
 		ld (ix+st_arg_v),a
 		ld (ix+st_arg_disp),0
@@ -169,7 +179,7 @@ mkarg_register_rr_20:
 		ret		
 	
 	;---------------------------------------------------------------
-	; mkarg_register:
+	; mkreg:
 	;
 	; Makes an argument structure for a register argument using
 	; the specified register symbol.
@@ -182,14 +192,14 @@ mkarg_register_rr_20:
 	;	all registers preserved
 	;
 
-mkarg_register:
+mkreg::
 		ld (ix+st_arg_flags),mask_register
 		ld (ix+st_arg_v),a
 		ld (ix+st_arg_disp),c
 		ret
 
 	;---------------------------------------------------------------
-	; mkarg_register_indirect:
+	; mkregi:
 	;
 	; Makes an argument structure for a register indirect argument 
         ; using the specified register symbol.
@@ -203,7 +213,7 @@ mkarg_register:
 	;	all registers preserved
 	;
 
-mkarg_register_indirect:
+mkregi::
 		push af
 		ld (ix+st_arg_flags),mask_register | mask_indirect
 		ld (ix+st_arg_v),a
@@ -211,16 +221,16 @@ mkarg_register_indirect:
 		
 		ld a,(iy+st_dasm_preg)
 		cp reg_HL
-		jr z,mkarg_register_indirect_10	
+		jr z,mkregi_10	
 		set arg_indexed,(ix+st_arg_flags)
 		ld (ix+st_arg_disp),c
 
-mkarg_register_indirect_10:
+mkregi_10:
 		pop af
 		ret
 
 	;---------------------------------------------------------------
-	; mkarg_absolute_addr:
+	; mkaadd:
 	;
 	; Makes an argument structure for an absolute (immediate) address.
 	; On entry:
@@ -228,14 +238,14 @@ mkarg_register_indirect_10:
 	; On return:
 	;	all registers preserved
 	;
-mkarg_absolute_addr:
+mkaadd::
 		ld (ix+st_arg_flags),mask_immediate | mask_extended
 		ld (ix+st_arg_v),c
 		ld (ix+st_arg_v+1),b
 		ret
 
 	;---------------------------------------------------------------
-	; mkarg_indirect_addr:
+	; mkiadd:
 	;
 	; Makes an argument structure for an indirect address.
 	;
@@ -244,14 +254,14 @@ mkarg_absolute_addr:
 	; On return:
 	;	all registers preserved
 	;
-mkarg_indirect_addr:
+mkiadd::
 		ld (ix+st_arg_flags),mask_immediate | mask_extended | mask_indirect
 		ld (ix+st_arg_v),c
 		ld (ix+st_arg_v+1),b
 		ret
 
 	;---------------------------------------------------------------
-	; mkarg_relative_addr:
+	; mkradd:
 	;
 	; Makes an argument structure for an relative address.
 	;
@@ -260,13 +270,13 @@ mkarg_indirect_addr:
 	; On return:
 	;	all registers preserved
 	; 
-mkarg_relative_addr:
+mkradd::
 		ld (ix+st_arg_flags),mask_immediate | mask_disp
 		ld (ix+st_arg_v),c
 		ret
 
 	;---------------------------------------------------------------
-	; mkarg_immediate:
+	; mkimm:
 	;
 	; Makes an argument structure for an 8-bit immediate operand
 	;
@@ -275,13 +285,13 @@ mkarg_relative_addr:
 	; On return:
 	;	all registers preserved
 	; 
-mkarg_immediate:
+mkimm::
 		ld (ix+st_arg_flags),mask_immediate
 		ld (ix+st_arg_v),c
 		ret
 
         ;---------------------------------------------------------------
-        ; mkarg_implicit_literal:
+        ; mkilit:
         ;
         ; Makes an argument structure for an implicit literal operand 
         ; (e.g. for the BIT or IM instructions).
@@ -291,23 +301,23 @@ mkarg_immediate:
         ; On return:
         ;       all registers preserved
         ;
-mkarg_implicit_literal:
+mkilit::
                 ld (ix+st_arg_flags),mask_implicit
                 ld (ix+st_arg_v),a
 		ret
 
         ;---------------------------------------------------------------
-        ; mkarg_implicit_addr:
+        ; mkzadd:
         ;
-        ; Makes an argument structure for an implicit address operand
-        ; (e.g. for the RST instruction).
+        ; Makes an argument structure for an implicit zero-page address 
+	; operand; e.g. for the RST instruction.
         ;
         ; On entry:
         ;       A = operand
         ; On return:
         ;       all registers preserved
         ;
-mkarg_implicit_addr:
+mkzadd::
                 ld (ix+st_arg_flags),mask_implicit | mask_flag
                 ld (ix+st_arg_v),a
                 ret

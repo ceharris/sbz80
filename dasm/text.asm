@@ -1,5 +1,10 @@
+		name text
+		include defs.asm
+	
+		cseg
+		
 	;---------------------------------------------------------------
-	; inst_to_string:
+	; i2str:
 	;
 	; Converts a decoded instruction to a string representation.
 	;
@@ -12,7 +17,7 @@
 	;	all other registers except AF preserved
 	;
 
-inst_to_string:
+i2str::
 		push bc
 		push hl
 
@@ -24,7 +29,7 @@ inst_to_string:
 		; any arguments?
 		ld a,(ix+st_inst_argc)		; get arg count
 		or a
-		jr z,inst_to_string_done	; done if no args
+		jr z,i2str_done	; done if no args
 
 		; delimit instruction from args with a single space
 		ld a,' '
@@ -41,7 +46,7 @@ inst_to_string:
 		; more than one argument?
 		ld a,(ix+st_inst_argc)
 		cp 2
-		jr c,inst_to_string_done	; done if just one arg
+		jr c,i2str_done	; done if just one arg
 
 		; delimit first arg from next with a comma
 		ld a,','
@@ -55,7 +60,7 @@ inst_to_string:
 		call arg_to_string
 		pop ix
 
-inst_to_string_done:
+i2str_done:
 	
 		; null-terminate the string
 		xor a
@@ -497,4 +502,9 @@ copy_symbol20:
 		pop hl
 		pop bc
 		ret
+
+		include mnemonic.asm
+		include operand.asm
+
+		end
 

@@ -1,75 +1,34 @@
-		extern test
+		include defs.asm
 
-; Bit positions for argument flags
-arg_register	equ 0
-arg_immediate	equ 1
-arg_extended	equ 2
-arg_indirect	equ 3
-arg_indexed	equ 4
-arg_flag	equ 5	
-arg_implicit	equ 6
-arg_disp	equ 7
+		extern mkflag
+		extern mkregr
+		extern mkregqq
+		extern mkregss
+		extern mkreg
+		extern mkaadd
+		extern mkiadd
+		extern mkradd
+		extern mkimm
+		extern mkilit
+		extern mkzadd
 
-; Masks for argument flags
-mask_register	equ 1<<arg_register
-mask_immediate	equ 1<<arg_immediate
-mask_extended	equ 1<<arg_extended
-mask_indirect	equ 1<<arg_indirect
-mask_indexed	equ 1<<arg_indexed
-mask_flag	equ 1<<arg_flag
-mask_implicit	equ 1<<arg_implicit
-mask_disp	equ 1<<arg_disp
-
-; Argument structure displacements and size
-st_arg_flags	equ 0
-st_arg_v	equ 1
-st_arg_disp	equ 3
-st_arg_size	equ st_arg_disp + 1
-
-; Decoded instruction structure displacements and size
-st_inst_len	equ 0
-st_inst_flags	equ 1
-st_inst_opcode	equ 2
-st_inst_argc	equ 3
-st_inst_argx	equ 4
-st_inst_argy	equ st_inst_argx + st_arg_size
-st_inst_size	equ st_inst_argy + st_arg_size
-
-; Disassembler state structure displacements and size
-st_dasm_level	equ 0
-st_dasm_preg	equ 1
-st_dasm_inst	equ 2
-st_dasm_usize	equ st_dasm_inst + st_inst_size
-st_dasm_size	equ st_dasm_usize + (16 - st_dasm_usize % 16)
+		extern i2str
 
 		cseg
-demo:
-		ld iy,dbuf
-		ld (iy+st_dasm_level),0		
-		ld (iy+st_dasm_preg),reg_HL
-
-		ld ix,dbuf+st_dasm_inst
-
-		ld hl,test
-		ld de,cbuf
-
-demo10:
-		ld (iy+st_dasm_level),0		
-		ld (iy+st_dasm_preg),reg_HL
-		call dasm_page0
-		call inst_to_string
-
-		ld a,(hl)
-		or a
-		jr nz,demo10
-
-		halt
 
 	; On entry:
 	;	IX -> instruction decode structure
 	;	IY -> disassembler state structure
 	;	HL -> memory location to disassemble
 	;
+dasm::
+                ld (iy+st_dasm_level),0
+                ld (iy+st_dasm_preg),reg_HL
+		push iy
+		pop ix
+		ld bc,st_dasm_inst
+		add ix,bc			; point to instruction member
+
 dasm_page0:
 		push ix
 		push bc
@@ -263,12 +222,12 @@ dasm_p0_s0_c0_r1:
 		add ix,bc			; point to arg x struct
 		ld c,0				; no displacement
 		ld a,reg_AF			; register symbol index
-		call mkarg_register		; configure register arg
+		call mkreg		; configure register arg
 		ld bc,st_arg_size
 		add ix,bc			; point to arg y struct
 		ld c,0				; no displacement
 		ld a,reg_AAF			; register symbol index
-		call mkarg_register		; configure register arg
+		call mkreg		; configure register arg
 		jp dasm_page0_done
 
 		;----------------
@@ -290,7 +249,7 @@ dasm_p0_s0_c0_r3jr:
 		add ix,bc			; point to arg x struct
 		ld c,(hl)			; fetch displacement
 		inc hl
-		call mkarg_relative_addr	; configure relative addr arg
+		call mkradd	; configure relative addr arg
 		jp dasm_page0_done
 
 		;----------------
@@ -307,13 +266,13 @@ dasm_p0_s0_c0_r47:
 		
 		ld bc,st_inst_argx
 		add ix,bc			; point to arg x struct
-		call mkarg_flag			; configure flag arg
+		call mkflag			; configure flag arg
 
 		ld bc,st_arg_size
 		add ix,bc			; point to arg y struct
 		ld c,(hl)			; fetch displacement
 		inc hl
-		call mkarg_relative_addr	; configure relative addr arg
+		call mkradd	; configure relative addr arg
 		jp dasm_page0_done
 
 		;----------------
@@ -326,7 +285,7 @@ dasm_p0_s0_c1_re:
 		and 0x3				; mask all but register bits
 		ld bc,st_inst_argx
 		add ix,bc			; point to arg x struct
-		call mkarg_register_ss		; configure register ss arg
+		call mkregss		; configure register ss arg
 
 		ld bc,st_arg_size
 		add ix,bc			; point to arg y struct
@@ -334,7 +293,7 @@ dasm_p0_s0_c1_re:
 		inc hl
 		ld b,(hl)			; get MSB of immediate arg
 		inc hl
-		call mkarg_absolute_addr
+		call mkaadd
 		jp dasm_page0_done
 
 		;----------------
@@ -348,12 +307,12 @@ dasm_p0_s0_c1_ro:
 		and 0x3				; mask all but register bits
 		ld bc,st_inst_argx + st_arg_size
 		add ix,bc			; point to arg y struct
-		call mkarg_register_ss		; configure register ss arg
+		call mkregss		; configure register ss arg
 
 		ld bc,-st_arg_size
 		add ix,bc			; point to arg x struc
 		ld a,(iy+st_dasm_preg)		; get pointer register symbol
-		call mkarg_register		; configure register arg
+		call mkreg		; configure register arg
 		jp dasm_page0_done
 
 		;----------------
@@ -366,13 +325,13 @@ dasm_p0_s0_c2_r0:
 		ld bc,st_inst_argx
 		add ix,bc			; point to arg x struct
 		ld a,reg_BC
-		call mkarg_register		; configure register arg
+		call mkreg		; configure register arg
 		set arg_indirect,(ix+st_arg_flags)
 
 		ld bc,st_arg_size
 		add ix,bc			; point to arg y struct
 		ld a,reg_A
-		call mkarg_register		; configure register arg
+		call mkreg		; configure register arg
 		jp dasm_page0_done
 
 		;----------------
@@ -385,12 +344,12 @@ dasm_p0_s0_c2_r1:
 		ld bc,st_inst_argx
 		add ix,bc			; point to arg x struct
 		ld a,reg_A
-		call mkarg_register		; configure register arg
+		call mkreg		; configure register arg
 
 		ld bc,st_arg_size
 		add ix,bc			; point to arg y struct
 		ld a,reg_BC
-		call mkarg_register		; configure register arg
+		call mkreg		; configure register arg
 		set arg_indirect,(ix+st_arg_flags)
 
 		jp dasm_page0_done
@@ -405,13 +364,13 @@ dasm_p0_s0_c2_r2:
 		ld bc,st_inst_argx
 		add ix,bc			; point to arg x struct
 		ld a,reg_DE
-		call mkarg_register		; configure register arg
+		call mkreg		; configure register arg
 		set arg_indirect,(ix+st_arg_flags)
 
 		ld bc,st_arg_size
 		add ix,bc			; point to arg y struct
 		ld a,reg_A
-		call mkarg_register		; configure register arg
+		call mkreg		; configure register arg
 		jp dasm_page0_done
 
 		;----------------
@@ -424,12 +383,12 @@ dasm_p0_s0_c2_r3:
 		ld bc,st_inst_argx
 		add ix,bc			; point to arg x struct
 		ld a,reg_A
-		call mkarg_register		; configure register arg
+		call mkreg		; configure register arg
 
 		ld bc,st_arg_size
 		add ix,bc			; point to arg y struct
 		ld a,reg_DE
-		call mkarg_register		; configure register arg
+		call mkreg		; configure register arg
 		set arg_indirect,(ix+st_arg_flags)
 
 		jp dasm_page0_done
@@ -447,12 +406,12 @@ dasm_p0_s0_c2_r4:
 		inc hl
 		ld b,(hl)			; load MSB of address
 		inc hl
-		call mkarg_indirect_addr	; configure indirect arg
+		call mkiadd	; configure indirect arg
 
 		ld bc,st_arg_size
 		add ix,bc			; point to arg y struct
 		ld a,(iy+st_dasm_preg)		; pointer register symbol
-		call mkarg_register		; configure register arg
+		call mkreg		; configure register arg
 		jp dasm_page0_done
 
 		;----------------
@@ -465,7 +424,7 @@ dasm_p0_s0_c2_r5:
 		ld bc,st_inst_argx
 		add ix,bc			; point to arg x struct
 		ld a,(iy+st_dasm_preg)		; pointer register symbol
-		call mkarg_register		; configure register arg
+		call mkreg		; configure register arg
 
 		ld bc,st_arg_size
 		add ix,bc			; point to arg y struct
@@ -473,7 +432,7 @@ dasm_p0_s0_c2_r5:
 		inc hl
 		ld b,(hl)			; load MSB of address
 		inc hl
-		call mkarg_indirect_addr	; configure indirect arg
+		call mkiadd	; configure indirect arg
 
 		jp dasm_page0_done
 
@@ -490,12 +449,12 @@ dasm_p0_s0_c2_r6:
 		inc hl
 		ld b,(hl)			; load MSB of address
 		inc hl
-		call mkarg_indirect_addr	; configure indirect arg
+		call mkiadd	; configure indirect arg
 
 		ld bc,st_arg_size
 		add ix,bc			; point to arg y struct
 		ld a,reg_A
-		call mkarg_register		; configure register arg
+		call mkreg		; configure register arg
 		jp dasm_page0_done
 
 		;----------------
@@ -508,7 +467,7 @@ dasm_p0_s0_c2_r7:
 		ld bc,st_inst_argx
 		add ix,bc			; point to arg x struct
 		ld a,reg_A
-		call mkarg_register		; configure register arg
+		call mkreg		; configure register arg
 
 		ld bc,st_arg_size
 		add ix,bc			; point to arg y struct
@@ -516,7 +475,7 @@ dasm_p0_s0_c2_r7:
 		inc hl
 		ld b,(hl)			; load MSB of address
 		inc hl
-		call mkarg_indirect_addr	; configure indirect arg
+		call mkiadd
 		jp dasm_page0_done
 
 		;-----------------------------
@@ -532,7 +491,7 @@ dasm_p0_s0_c3_re:
 		and 0x3				; mask all but register bits
 		ld bc,st_inst_argx
 		add ix,bc			; point to arg x struc
-		call mkarg_register_ss		; configure register ss arg
+		call mkregss		; configure register ss arg
 		jp dasm_page0_done
 
 		;----------------
@@ -545,7 +504,7 @@ dasm_p0_s0_c3_ro:
 		and 0x3				; mask all but register bits
 		ld bc,st_inst_argx
 		add ix,bc			; point to arg x struc
-		call mkarg_register_ss		; configure register ss arg
+		call mkregss			; configure register ss arg
 		jp dasm_page0_done
 
 		;-----------------------------
@@ -574,7 +533,7 @@ dasm_p0_s0_c45_20:
 
 		ld bc,st_inst_argx
 		add ix,bc			; point to arg x struct		
-		call mkarg_register_r
+		call mkregr
 		jp dasm_page0_done
 
 		;-----------------------------
@@ -596,13 +555,13 @@ dasm_p0_s0_c6:
 		
 		ld bc,st_inst_argx
 		add ix,bc			; point to arg x struct		
-		call mkarg_register_r
+		call mkregr
 		
 		ld bc,st_arg_size
 		add ix,bc			; point to arg y struct
 		ld c,(hl)			; get immediate argument
 		inc hl
-		call mkarg_immediate
+		call mkimm
 		jp dasm_page0_done		
 
 		;-----------------------------
@@ -632,7 +591,7 @@ dasm_p0_s1_10:
 		rlca 
 		rlca 
 		and 0x7				; just the register bits
-		call mkarg_register_r
+		call mkregr
 
 		ld a,c				; recover register bits
 		; move source register into lowest 3 bits
@@ -642,7 +601,7 @@ dasm_p0_s1_10:
 
 		ld bc,st_arg_size
 		add ix,bc			; point to arg y struct
-		call mkarg_register_r
+		call mkregr
 		jp dasm_page0_done
 
 		;-------------------
@@ -669,7 +628,7 @@ dasm_p0_s2_r03:
 		ld c,a				; save row and register bits
 
 		ld a,reg_A			; A is the target register
-		call mkarg_register
+		call mkreg
 		ld a,c				; recover row and register bits
 
 		ld bc,st_arg_size
@@ -681,7 +640,7 @@ dasm_p0_s2_r03:
 		rra
 		rra
 		and 0x7
-		call mkarg_register_r
+		call mkregr
 		ld a,c				; recover row bits
 		
 		ld c,2				; argument count
@@ -706,8 +665,9 @@ dasm_p0_s2_r47:
 		ld c,a				; save row bits
 		rra
 		rra
+		rra
 		and 0x7
-		call mkarg_register_r
+		call mkregr
 		ld a,c				; recover row bits
 		
 		ld c,1				; argument count
@@ -737,7 +697,7 @@ dasm_p0_s2_r2:
 		rra
 		rra
 		and 0x7
-		call mkarg_register_r
+		call mkregr
 		
 		ld c,1				; argument count
 		ld a,op_SUB
@@ -806,7 +766,7 @@ dasm_p0_s3_c0:
 		
 		ld bc,st_inst_argx
 		add ix,bc			; point at arg x struct
-		call mkarg_flag
+		call mkflag
 
 		jp dasm_page0_done
 
@@ -832,7 +792,7 @@ dasm_p0_s3_c1:
 
 		ld bc,st_inst_argx
 		add ix,bc			; point to arg x struct
-		call mkarg_register_qq
+		call mkregqq
 
 		jp dasm_page0_done		
 
@@ -860,12 +820,11 @@ dasm_p0_s3_c1_r57:
 		add ix,bc			; point to arg x struct
 		ld a,(iy+st_dasm_preg)		; pointer register symbol
 
-		; We don't use mkarg_register_indirect here because
-		; this isn't really indirect; the mnemonic should have 
-		; been `JP HL`. Using indirect would imply an 8-bit
-		; operation with a displacement.
+		; We don't use mkireg here because this isn't really indirect; 
+		; the mnemonic should have been `JP HL`. Using indirect would 
+		; imply an 8-bit operation with a displacement.
 
-		call mkarg_register
+		call mkreg
 		set arg_indirect,(ix+st_arg_flags)	
 
 		jp dasm_page0_done
@@ -880,12 +839,12 @@ dasm_p0_s3_c1_r7:
 		ld bc,st_inst_argx
 		add ix,bc			; point to arg x struct
 		ld a,reg_SP
-		call mkarg_register
+		call mkreg
 
 		ld bc,st_arg_size
 		add ix,bc			; point to arg y struct
 		ld a,(iy+st_dasm_preg)		; get pointer register symbol
-		call mkarg_register		
+		call mkreg		
 
 		jp dasm_page0_done
 
@@ -908,7 +867,7 @@ dasm_p0_s3_c2:
 		
 		ld bc,st_inst_argx
 		add ix,bc			; point at arg x struct
-		call mkarg_flag
+		call mkflag
 
 		ld bc,st_arg_size
 		add ix,bc			; point at arg y struct
@@ -916,7 +875,7 @@ dasm_p0_s3_c2:
 		inc hl
 		ld b,(hl)			; get immediate addr MSB
 		inc hl
-		call mkarg_absolute_addr
+		call mkaadd
 
 		jp dasm_page0_done
 
@@ -965,7 +924,7 @@ dasm_p0_s3_c3_r0:
 		inc hl
 		ld b,(hl)			; get MSB of absolute address
 		inc hl
-		call mkarg_absolute_addr
+		call mkaadd
 
 		jp dasm_page0_done		
 
@@ -980,13 +939,13 @@ dasm_p0_s3_c3_r2:
 		add ix,bc			; point to arg x struct
 		ld c,(hl)			; get immediate argument 
 		inc hl
-		call mkarg_immediate
+		call mkimm
 		set arg_indirect,(ix+st_arg_flags)
 
 		ld bc,st_arg_size
 		add ix,bc			; point to arg y struct
 		ld a,reg_A
-		call mkarg_register
+		call mkreg
 
 		jp dasm_page0_done
 
@@ -1000,13 +959,13 @@ dasm_p0_s3_c3_r3:
 		ld bc,st_inst_argx
 		add ix,bc			; point to arg x struct
 		ld a,reg_A
-		call mkarg_register
+		call mkreg
 
 		ld bc,st_arg_size
 		add ix,bc			; point to arg y struct
 		ld c,(hl)			; get immediate argument 
 		inc hl
-		call mkarg_immediate
+		call mkimm
 		set arg_indirect,(ix+st_arg_flags)
 
 		jp dasm_page0_done
@@ -1021,13 +980,13 @@ dasm_p0_s3_c3_r4:
 		ld bc,st_inst_argx
 		add ix,bc			; point to arg x struct
 		ld a,reg_SP
-		call mkarg_register
+		call mkreg
 		set arg_indirect,(ix+st_arg_flags)
 		
 		ld bc,st_arg_size
 		add ix,bc			; point to arg x struct
 		ld a,(iy+st_dasm_preg)		; pointer register symbol
-		call mkarg_register
+		call mkreg
 
 		jp dasm_page0_done
 
@@ -1041,12 +1000,12 @@ dasm_p0_s3_c3_r5:
 		ld bc,st_inst_argx
 		add ix,bc			; point to arg x struct
 		ld a,reg_DE
-		call mkarg_register
+		call mkreg
 		
 		ld bc,st_arg_size
 		add ix,bc			; point to arg x struct
 		ld a,reg_HL
-		call mkarg_register
+		call mkreg
 
 		jp dasm_page0_done
 
@@ -1069,7 +1028,7 @@ dasm_p0_s3_c4:
 		
 		ld bc,st_inst_argx
 		add ix,bc			; point at arg x struct
-		call mkarg_flag
+		call mkflag
 
 		ld bc,st_arg_size
 		add ix,bc			; point at arg y struct
@@ -1077,7 +1036,7 @@ dasm_p0_s3_c4:
 		inc hl
 		ld b,(hl)			; get immediate addr MSB
 		inc hl
-		call mkarg_absolute_addr
+		call mkaadd
 
 		jp dasm_page0_done
 
@@ -1103,7 +1062,7 @@ dasm_p0_s3_c5:
 
 		ld bc,st_inst_argx
 		add ix,bc			; point to arg x struct
-		call mkarg_register_qq
+		call mkregqq
 
 		jp dasm_page0_done		
 
@@ -1132,7 +1091,7 @@ dasm_p0_s3_c5_r1:
 		inc hl
 		ld b,(hl)			; get MSB of absolute address
 		inc hl
-		call mkarg_absolute_addr
+		call mkaadd
 
 		jp dasm_page0_done		
 
@@ -1161,7 +1120,7 @@ dasm_p0_s3_c6_r03:
 		ld c,a				; save row bits
 
 		ld a,reg_A			; A is the target register
-		call mkarg_register
+		call mkreg
 		ld a,c				; recover row bits
 
 		ld bc,st_arg_size
@@ -1170,7 +1129,7 @@ dasm_p0_s3_c6_r03:
 		ld b,a				; save row bits
 		ld c,(hl)			; get immediate argument
 		inc hl
-		call mkarg_immediate
+		call mkimm
 		ld a,b				; recover row bits
 		
 		ld c,2				; argument count
@@ -1194,7 +1153,7 @@ dasm_p0_s3_c6_r47:
 		ld b,a				; save row bits
 		ld c,(hl)			; get immediate argument
 		inc hl
-		call mkarg_immediate
+		call mkimm
 		ld a,b				; recover row bits
 		
 		ld c,1				; argument count
@@ -1223,7 +1182,7 @@ dasm_p0_s3_c6_r2:
 		ld b,a				; save row bits
 		ld c,(hl)			; get immediate argument
 		inc hl
-		call mkarg_immediate
+		call mkimm
 		ld a,b				; recover row bits
 		
 		ld c,1				; argument count
@@ -1253,122 +1212,17 @@ dasm_p0_s3_c7:
 
 		ld bc,st_inst_argx
 		add ix,bc			; point to arg x struct
-		call mkarg_implicit_addr
+		call mkzadd
 		jp dasm_page0_done
 
 		;----------------------
 		; Extension Page CB
 		;----------------------
-dasm_page_cb:
-		;***** FIXME -- displacement comes before the opcode
-		
-		ld a,(hl)			; get next opcode
-		inc hl
+		include pgcb.asm
 
-		; divide into sections
-		rla
-		jr c,dasm_pcb_s23
-		rla
-		jr nc,dasm_pcb_s0
-		ld c,a				; save row and register bits
-		ld a,op_BIT			; ---- BIT ----
-		jr dasm_pcb_s13
-dasm_pcb_s23:
-		rla
-		ld c,a				; save row and register bits
-		ld a,op_RES			; ---- RES ----
-		jr nc,dasm_pcb_s13
-		ld a,op_SET			; ---- SET ----
-		jr c,dasm_pcb_s13		
-		
-		;--------------------
-		; Page CB, Section 0 
-		;--------------------
-dasm_pcb_s0:
-		push ix				; preserve IX
-
-		ld bc,st_inst_argx
-		add ix,bc			; point to arg x struct
-
-		; get register argument into the 3 lowest bits of A
-		ld c,a				; save row bits
-		rra
-		rra
-		and 0x7
-
-		call mkarg_register_r
-		ld a,c				; recover row bits
-		
-		; now split into rows
-		rla
-		jr c,dasm_pcb_s0_r47
-		rla
-		jr c,dasm_pcb_s0_r23
-		rla
-		ld a,op_RLC			; ---- RLC ----
-		jr nc,dasm_pcb_s0_done
-		ld a,op_RRC			; ---- RRC ----
-		jr dasm_pcb_s0_done
-dasm_pcb_s0_r23:
-		rla
-		ld a,op_RL			; ---- RL ----
-		jr nc,dasm_pcb_s0_done
-		ld a,op_RR			; ---- RR ----
-		jr dasm_pcb_s0_done
-dasm_pcb_s0_r47:
-		rla
-		jr c,dasm_pcb_s0_r67
-		rla
-		ld a,op_SLA			; ---- SLA ----
-		jr nc,dasm_pcb_s0_done
-		ld a,op_SRA			; ---- SRA ----
-		jr dasm_pcb_s0_done
-dasm_pcb_s0_r67:
-		rla
-		ld a,op_SLL			; ---- SLL ----
-		jr nc,dasm_pcb_s0_done
-		ld a,op_SRL			; ---- SRL ----
-
-dasm_pcb_s0_done:
-		pop ix
-		ld (ix+st_inst_opcode),a
-		ld (ix+st_inst_argc),1
-
-		jp dasm_page0_done
-
-
-		;-----------------------
-		; Page CB, Sections 1-3
-		;-----------------------
-dasm_pcb_s13:
-		ld (ix+st_inst_opcode),a
-		ld (ix+st_inst_argc),2
-
-		ld a,c				; save row and register bits
-
-		ld bc,st_inst_argx
-		add ix,bc			; point to arg x struct
-
-		; put bit number into lowest 3 bits of A
-		ld c,a				; save row and register bits
-		rlca
-		rlca
-		rlca
-		and 0x7
-		call mkarg_implicit_literal
-		ld a,c				; recover register bits
-
-		ld bc,st_arg_size
-		add ix,bc			; point to arg y struct
-
-		; put register into lowest 3 bits of A
-		rra
-		rra		
-		and 0x7	
-		call mkarg_register_r
-
-		jp dasm_page0_done
-	
+		;----------------------
+		; Extension Page DD
+		;----------------------
 dasm_page_dd:
 		ld (iy+st_dasm_preg),reg_IX
 		jp dasm_page0_reentry
@@ -1385,6 +1239,7 @@ dasm_page_fd:
 		ld (iy+st_dasm_preg),reg_IY
 		jp dasm_page0_reentry
 
+
 dasm_page0_noarg:
 		ld (ix+st_inst_opcode),a	; mnemomic symbol index
 		ld (ix+st_inst_argc),0		; no arguments
@@ -1393,15 +1248,6 @@ dasm_page0_done:
 		pop bc
 		pop ix
 		ret
-
-		include mkarg.asm
-		include text.asm
-		include mnemonic.asm
-		include operand.asm
-
-		dseg
-dbuf		ds st_dasm_size
-cbuf		ds 24
 
 		end
 

@@ -1,29 +1,3 @@
-reg_A		equ 0
-reg_B		equ 1
-reg_C		equ 2
-reg_D		equ 3
-reg_E		equ 4
-reg_H		equ 5
-reg_L		equ 6
-reg_AF		equ 7
-reg_BC		equ 8
-reg_DE		equ 9
-reg_HL		equ 10
-reg_SP		equ 11
-reg_IX		equ 12
-reg_IY		equ 13
-reg_AAF		equ 14
-reg_I		equ 15
-reg_R		equ 16
-fl_NZ		equ 17
-fl_Z		equ 18
-fl_NC		equ 19
-fl_C		equ 20
-fl_PO		equ 21
-fl_PE		equ 22 
-fl_P		equ 23
-fl_M		equ 24
-
 s_reg_A		db 1,"A"
 s_reg_B		db 1,"B"
 s_reg_C		db 1,"C"
@@ -80,9 +54,7 @@ s_table_end:
 s_table_size	equ s_table_end - s_table
 num_operands	equ s_table_size / 2
 
-reg_indirect	equ 6			; bit pattern for indirect register
-
-reg_r_table:
+reg_r_table::
 		db reg_B
 		db reg_C
 		db reg_D
@@ -92,26 +64,24 @@ reg_r_table:
 		db reg_HL
 		db reg_A
 
-reg_pointer	equ 2			; bit pattern for pointer register
-
-reg_ss_table:
+reg_ss_table::
 		db reg_BC
 		db reg_DE
 		db reg_HL
 		db reg_SP
 
-reg_qq_table:
+reg_qq_table::
 		db reg_BC
 		db reg_DE
 		db reg_HL
 		db reg_AF
 
-flag_table:
+flag_table::
 		db fl_NZ
 		db fl_Z
 		db fl_NC
 		db fl_C
-		db fl_PE
 		db fl_PO
+		db fl_PE
 		db fl_P
 		db fl_M
