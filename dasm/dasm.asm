@@ -28,19 +28,19 @@
 	; On return:
 	;	HL = HL + length of decoded instruction
 dasm::
+		; initial disassembly state
+ 		ld (iy+st_dasm_addr),l
+ 		ld (iy+st_dasm_addr+1),h
                 ld (iy+st_dasm_flags),0
                 ld (iy+st_dasm_preg),reg_HL
+
 		push iy
 		pop ix
 		ld bc,st_dasm_inst
 		add ix,bc			; point to instruction member
 
-; 		; store address of the instruction
-; 		ld (ix+st_inst_addr),l
-; 		ld (ix+st_inst_addr+1),h
-dasm_p0:
-		push ix
 		push bc
+		push ix
 dasm_p0_reentry:
 		ld a,(hl)			; fetch opcode
 		inc hl
@@ -1254,17 +1254,18 @@ dasm_p0_noarg:
 		ld (ix+st_inst_argc),0		; no arguments
 
 dasm_p0_done:
-; 		; compute instruction length
-; 		push hl
-; 		ld c,(ix+st_inst_addr)
-; 		ld b,(ix+st_inst_addr+1)
-; 		or a				; clear carry
-; 		sbc hl,bc
-; 		ld (ix+st_inst_len),l
-; 		pop hl
+		pop ix
+
+		; compute instruction length
+		push hl
+		ld c,(iy+st_dasm_addr)
+		ld b,(iy+st_dasm_addr+1)
+		or a				; clear carry
+		sbc hl,bc
+		ld (ix+st_inst_len),l
+		pop hl
 	
 		pop bc
-		pop ix
 		ret
 
 		end

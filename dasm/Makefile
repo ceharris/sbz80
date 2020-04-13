@@ -36,7 +36,7 @@ mkarg.rel: mkarg.asm defs.asm
 
 text.rel: text.asm defs.asm operand.asm mnemonic.asm
 
-test.rel: test.asm optest.asm
+test.rel: test.asm defs.asm optest.asm
 
 clean: 
 	-rm -f *.rel *.lst *.sym *.hex *.bin *.z80
