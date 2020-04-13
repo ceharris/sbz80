@@ -1,3 +1,4 @@
+		extern test
 
 ; Bit positions for argument flags
 arg_register	equ 0
@@ -53,6 +54,8 @@ demo:
 		ld de,cbuf
 
 demo10:
+		ld (iy+st_dasm_level),0		
+		ld (iy+st_dasm_preg),reg_HL
 		call dasm_page0
 		call inst_to_string
 
@@ -1253,7 +1256,12 @@ dasm_p0_s3_c7:
 		call mkarg_implicit_addr
 		jp dasm_page0_done
 
+		;----------------------
+		; Extension Page CB
+		;----------------------
 dasm_page_cb:
+		;***** FIXME -- displacement comes before the opcode
+		
 		ld a,(hl)			; get next opcode
 		inc hl
 
@@ -1328,6 +1336,7 @@ dasm_pcb_s0_done:
 
 		jp dasm_page0_done
 
+
 		;-----------------------
 		; Page CB, Sections 1-3
 		;-----------------------
@@ -1364,9 +1373,14 @@ dasm_page_dd:
 		ld (iy+st_dasm_preg),reg_IX
 		jp dasm_page0_reentry
 
-dasm_page_ed:
-		halt
+		;--------------------------
+		; Extension Page ED 
+		;--------------------------
+		include pged.asm		
 
+		;--------------------------
+		; Extension Page FD 
+		;--------------------------
 dasm_page_fd:
 		ld (iy+st_dasm_preg),reg_IY
 		jp dasm_page0_reentry
@@ -1384,9 +1398,6 @@ dasm_page0_done:
 		include text.asm
 		include mnemonic.asm
 		include operand.asm
-
-		cseg
-		include test.asm
 
 		dseg
 dbuf		ds st_dasm_size

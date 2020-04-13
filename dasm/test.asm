@@ -1,4 +1,5 @@
-test:
+		cseg
+test::
 		; page 0, section 0, column 0
 		nop 
 		ex af,af'
@@ -604,6 +605,70 @@ test:
 		ld sp,ix
 		ex (sp),ix
 		push ix
+		; page ED section 1 column 0
+		in b,(c)
+		in c,(c)
+		in d,(c)
+		in e,(c)
+		in h,(c)
+		in l,(c)
+		in a,(c)
+		; page ED section 1 column 1
+		out (c),b
+		out (c),c
+		out (c),d
+		out (c),e
+		out (c),h
+		out (c),l
+		out (c),a
+		; page ED section 1 column 2
+		sbc hl,bc
+		adc hl,bc
+		sbc hl,de
+		adc hl,de
+		sbc hl,hl
+		adc hl,hl
+		sbc hl,sp
+		adc hl,sp
+		; page ED section 1 column 3
+		ld (0xccbb),bc
+		ld bc,(0xccbb)
+		ld (0xeedd),de
+		ld de,(0xeedd)
+		ld (0x1144),hl
+		ld hl,(0x1144)
+		ld (0x9955),sp
+		ld sp,(0x9955)
+		; page ED section 1 columns 4-7
+		neg
+		retn
+		reti
+		im 0
+		im 1
+		im 2
+		ld i,a
+		ld r,a
+		ld a,i
+		ld a,r
+		rrd
+		rld
+		; page ED section 2
+		ldi
+		ldd
+		ldir
+		lddr	
+		cpi
+		cpd
+		cpir
+		cpdr
+		ini
+		ind
+		inir
+		indr
+		outi
+		outd
+		otir
+		otdr
 		; page FD section 0
 		add iy,bc
 		add iy,de
@@ -649,3 +714,5 @@ test:
 		push iy
 
 		nop
+
+		end test
