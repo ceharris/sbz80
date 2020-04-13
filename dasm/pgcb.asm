@@ -2,11 +2,20 @@
 		; Extension Page CB
 		;----------------------
 dasm_page_cb:
-		;***** FIXME -- displacement comes before the opcode
-		
-		ld a,(hl)			; get next opcode
-		inc hl
+		; is this instruction targeting IX or IY?
+		bit arg_indexed,(iy+st_dasm_flags)
+		jr z,dasm_page_cb_10		; not targeting IX or IY
+		inc hl				; skip displacement
+	
+dasm_page_cb_10:
+		ld a,(hl)
 
+		; is this instruction targeting IX or IY?
+		bit arg_indexed,(iy+st_dasm_flags)
+		jr z,dasm_page_cb_20		; not targeting IX or IY
+		dec hl				; point to displacement
+
+dasm_page_cb_20:
 		; divide into sections
 		rla
 		jr c,dasm_pcb_s23
@@ -76,7 +85,7 @@ dasm_pcb_s0_done:
 		ld (ix+st_inst_opcode),a
 		ld (ix+st_inst_argc),1
 
-		jp dasm_page0_done
+		jp dasm_pcb_done
 
 
 		;-----------------------
@@ -109,5 +118,10 @@ dasm_pcb_s13:
 		and 0x7	
 		call mkregr
 
-		jp dasm_page0_done
-	
+dasm_pcb_done:
+		; is this instruction targeting IX or IY?
+		bit arg_indexed,(iy+st_dasm_flags)
+		jp z,dasm_p0_done		; not targeting IX or IY
+		inc hl				; skip displacement
+		jp dasm_p0_done
+		

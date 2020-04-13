@@ -102,7 +102,7 @@ dasm_ped_s1_c0:
 		call mkreg
 		set arg_indirect,(ix+st_arg_flags)
 		
-		jp dasm_page0_done
+		jp dasm_p0_done
 
 		;----------------------------
 		; Page ED Section 1 Column 1
@@ -139,7 +139,7 @@ dasm_ped_s1_c1:
 		
 		call mkregr
 
-		jp dasm_page0_done
+		jp dasm_p0_done
 
 		;----------------------------
 		; Page ED Section 1 Column 2
@@ -179,7 +179,7 @@ dasm_ped_s1_c2_20:
 		and 0x3
 		call mkregss
 		
-		jp dasm_page0_done
+		jp dasm_p0_done
 
 		;----------------------------
 		; Page ED Section 1 Column 3
@@ -218,7 +218,7 @@ dasm_ped_s1_c3:
 		and 0x3
 		call mkregss
 
-		jp dasm_page0_done
+		jp dasm_p0_done
 
 		;------------
 		; LD ss,(nn)
@@ -244,7 +244,7 @@ dasm_ped_s1_c3_10:
 		inc hl
 		call mkiadd
 
-		jp dasm_page0_done
+		jp dasm_p0_done
 
 		;----------------------------
 		; Page ED Section 1 Column 4
@@ -257,7 +257,7 @@ dasm_ped_s1_c4:
 		jp nz,dasm_ped_unsup		; only row 0 is defined
 		
 		ld a,op_NEG			; ---- NEG ----
-		jp dasm_page0_noarg
+		jp dasm_p0_noarg
 	
 		;----------------------------
 		; Page ED Section 1 Column 5
@@ -272,9 +272,9 @@ dasm_ped_s1_c5:
 		jp c,dasm_ped_unsup		; rows 2-3 not defined
 		rla
 		ld a,op_RETN			; ---- RETN ----
-		jp nc,dasm_page0_noarg
+		jp nc,dasm_p0_noarg
 		ld a,op_RETI			; ---- RETI ----
-		jp dasm_page0_noarg
+		jp dasm_p0_noarg
 
 		;----------------------------
 		; Page ED Section 1 Column 6
@@ -308,7 +308,7 @@ dasm_ped_s1_c6_10:
 		add ix,bc
 		call mkilit
 
-		jp dasm_page0_done
+		jp dasm_p0_done
 
 		;--------------------------------
 		; Page ED Section 1 Column 7
@@ -338,9 +338,9 @@ dasm_ped_s1_c7_r47:
 		jp c,dasm_ped_unsup		; rows 6-7 not defined
 		rla
 		ld a,op_RRD			; ---- RRD ----
-		jp nc,dasm_page0_noarg
+		jp nc,dasm_p0_noarg
 		ld a,op_RLD			; ---- RLD ----
-		jp dasm_page0_noarg
+		jp dasm_p0_noarg
 
 		;----------------
 		; LD I,A; LD R,A
@@ -360,7 +360,7 @@ dasm_ped_s1_c7_10:
 		ld a,reg_A
 		call mkreg
 
-		jp dasm_page0_done
+		jp dasm_p0_done
 
 		;----------------
 		; LD A,I; LD A,R
@@ -382,7 +382,7 @@ dasm_ped_s1_c7_20:
 
 		call mkreg
 
-		jp dasm_page0_done
+		jp dasm_p0_done
 		
 		;----------------------------
 		; Page ED Section 3 Column 0
@@ -397,15 +397,15 @@ dasm_ped_s2_c0:
 		jr c,dasm_ped_s2_c0_r67
 		rla
 		ld a,op_LDI			; ---- LDI ----
-		jp nc,dasm_page0_noarg
+		jp nc,dasm_p0_noarg
 		ld a,op_LDD			; ---- LDD ----
-		jp dasm_page0_noarg
+		jp dasm_p0_noarg
 dasm_ped_s2_c0_r67:
 		rla
 		ld a,op_LDIR			; ---- LDIR ----
-		jp nc,dasm_page0_noarg
+		jp nc,dasm_p0_noarg
 		ld a,op_LDDR			; ---- LDDR ----
-		jp dasm_page0_noarg
+		jp dasm_p0_noarg
 		
 		;----------------------------
 		; Page ED Section 2 Column 1
@@ -420,15 +420,15 @@ dasm_ped_s2_c1:
 		jr c,dasm_ped_s2_c1_r67
 		rla
 		ld a,op_CPI			; ---- CPI ----
-		jp nc,dasm_page0_noarg
+		jp nc,dasm_p0_noarg
 		ld a,op_CPD			; ---- CPD ----
-		jp dasm_page0_noarg
+		jp dasm_p0_noarg
 dasm_ped_s2_c1_r67:
 		rla
 		ld a,op_CPIR			; ---- CPIR ----
-		jp nc,dasm_page0_noarg
+		jp nc,dasm_p0_noarg
 		ld a,op_CPDR			; ---- CPDR ----
-		jp dasm_page0_noarg
+		jp dasm_p0_noarg
 
 		;----------------------------
 		; Page ED Section 2 Column 2
@@ -443,15 +443,15 @@ dasm_ped_s2_c2:
 		jr c,dasm_ped_s2_c2_r67
 		rla
 		ld a,op_INI			; ---- INI ----
-		jp nc,dasm_page0_noarg
+		jp nc,dasm_p0_noarg
 		ld a,op_IND			; ---- IND ----
-		jp dasm_page0_noarg
+		jp dasm_p0_noarg
 dasm_ped_s2_c2_r67:
 		rla
 		ld a,op_INIR			; ---- INIR ----
-		jp nc,dasm_page0_noarg
+		jp nc,dasm_p0_noarg
 		ld a,op_INDR			; ---- INDR ----
-		jp dasm_page0_noarg
+		jp dasm_p0_noarg
 
 		;----------------------------
 		; Page ED Section 2 Column 3
@@ -466,15 +466,15 @@ dasm_ped_s2_c3:
 		jr c,dasm_ped_s2_c3_r67
 		rla
 		ld a,op_OUTI			; ---- OUTI ----
-		jp nc,dasm_page0_noarg
+		jp nc,dasm_p0_noarg
 		ld a,op_OUTD			; ---- OUTD ----
-		jp dasm_page0_noarg
+		jp dasm_p0_noarg
 dasm_ped_s2_c3_r67:
 		rla
 		ld a,op_OTIR			; ---- OTIR ----
-		jp nc,dasm_page0_noarg
+		jp nc,dasm_p0_noarg
 		ld a,op_OTDR			; ---- OTDR ----
-		jp dasm_page0_noarg
+		jp dasm_p0_noarg
 
 		;------- TODO handle unrecognized op-code
 dasm_ped_unsup:

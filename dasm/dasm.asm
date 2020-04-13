@@ -1,3 +1,5 @@
+		name dasm
+
 		include defs.asm
 
 		extern mkflag
@@ -16,35 +18,42 @@
 
 		cseg
 
-	; On entry:
-	;	IX -> instruction decode structure
-	;	IY -> disassembler state structure
-	;	HL -> memory location to disassemble
+	;--------------------------------------------------------------
+	; dasm:
 	;
+	; Top-level disassembly entry point.
+	;
+	; On entry:
+	;	HL -> memory location to disassemble
+	; On return:
+	;	HL = HL + length of decoded instruction
 dasm::
-                ld (iy+st_dasm_level),0
+                ld (iy+st_dasm_flags),0
                 ld (iy+st_dasm_preg),reg_HL
 		push iy
 		pop ix
 		ld bc,st_dasm_inst
 		add ix,bc			; point to instruction member
 
-dasm_page0:
+; 		; store address of the instruction
+; 		ld (ix+st_inst_addr),l
+; 		ld (ix+st_inst_addr+1),h
+dasm_p0:
 		push ix
 		push bc
-dasm_page0_reentry:
+dasm_p0_reentry:
 		ld a,(hl)			; fetch opcode
 		inc hl
 
 		or a				; clear carry
 		rla
-		jr c,dasm_page0_upper		; upper half of page 0
+		jr c,dasm_p0_upper		; upper half of page 0
 
 		rla
 		jr nc,dasm_p0_s0		; opcodes 0x00-0x3f
 		jp dasm_p0_s1			; opcodes 0x40-0x7f
 
-dasm_page0_upper:
+dasm_p0_upper:
 		rla
 		jp nc,dasm_p0_s2		; opcodes 0x80-0xbf
 		jp dasm_p0_s3			; opcodes 0xc0-0xff
@@ -100,7 +109,7 @@ dasm_p0_s0_c0_r01:
 		rla
 		jp c,dasm_p0_s0_c0_r1
 		ld a,op_NOP			; ---- NOP ----
-		jp dasm_page0_noarg
+		jp dasm_p0_noarg
 dasm_p0_s0_c0_r23:
 		rla
 		jp nc,dasm_p0_s0_c0_r2
@@ -190,27 +199,27 @@ dasm_p0_s0_c7_r47:
 dasm_p0_s0_c7_r01:
 		rla
 		ld a,op_RLCA			; ---- RLCA ----
-		jp nc,dasm_page0_noarg
+		jp nc,dasm_p0_noarg
 		ld a,op_RRCA			; ---- RRCA ----
-		jp dasm_page0_noarg
+		jp dasm_p0_noarg
 dasm_p0_s0_c7_r23:
 		rla
 		ld a,op_RLA			; ---- RLA ----
-		jp nc,dasm_page0_noarg
+		jp nc,dasm_p0_noarg
 		ld a,op_RRA			; ---- RRA ----
-		jp dasm_page0_noarg
+		jp dasm_p0_noarg
 dasm_p0_s0_c7_r45:
 		rla
 		ld a,op_DAA			; ---- DAA ----
-		jp nc,dasm_page0_noarg
+		jp nc,dasm_p0_noarg
 		ld a,op_CPL			; ---- CPL ----
-		jp dasm_page0_noarg
+		jp dasm_p0_noarg
 dasm_p0_s0_c7_r67:
 		rla
 		ld a,op_SCF			; ---- SCF ----
-		jp nc,dasm_page0_noarg
+		jp nc,dasm_p0_noarg
 		ld a,op_CCF			; ---- CCF ----
-		jp dasm_page0_noarg
+		jp dasm_p0_noarg
 
 		;----------------
 		; EX AF,AF'
@@ -228,7 +237,7 @@ dasm_p0_s0_c0_r1:
 		ld c,0				; no displacement
 		ld a,reg_AAF			; register symbol index
 		call mkreg		; configure register arg
-		jp dasm_page0_done
+		jp dasm_p0_done
 
 		;----------------
 		; DJNZ disp
@@ -250,7 +259,7 @@ dasm_p0_s0_c0_r3jr:
 		ld c,(hl)			; fetch displacement
 		inc hl
 		call mkradd	; configure relative addr arg
-		jp dasm_page0_done
+		jp dasm_p0_done
 
 		;----------------
 		; JR fl,disp
@@ -273,7 +282,7 @@ dasm_p0_s0_c0_r47:
 		ld c,(hl)			; fetch displacement
 		inc hl
 		call mkradd	; configure relative addr arg
-		jp dasm_page0_done
+		jp dasm_p0_done
 
 		;----------------
 		; LD ss,N
@@ -294,7 +303,7 @@ dasm_p0_s0_c1_re:
 		ld b,(hl)			; get MSB of immediate arg
 		inc hl
 		call mkaadd
-		jp dasm_page0_done
+		jp dasm_p0_done
 
 		;----------------
 		; ADD HL,ss
@@ -313,7 +322,7 @@ dasm_p0_s0_c1_ro:
 		add ix,bc			; point to arg x struc
 		ld a,(iy+st_dasm_preg)		; get pointer register symbol
 		call mkreg		; configure register arg
-		jp dasm_page0_done
+		jp dasm_p0_done
 
 		;----------------
 		; LD (BC),A
@@ -332,7 +341,7 @@ dasm_p0_s0_c2_r0:
 		add ix,bc			; point to arg y struct
 		ld a,reg_A
 		call mkreg		; configure register arg
-		jp dasm_page0_done
+		jp dasm_p0_done
 
 		;----------------
 		; LD A,(BC)
@@ -352,7 +361,7 @@ dasm_p0_s0_c2_r1:
 		call mkreg		; configure register arg
 		set arg_indirect,(ix+st_arg_flags)
 
-		jp dasm_page0_done
+		jp dasm_p0_done
 
 		;----------------
 		; LD (DE),A
@@ -371,7 +380,7 @@ dasm_p0_s0_c2_r2:
 		add ix,bc			; point to arg y struct
 		ld a,reg_A
 		call mkreg		; configure register arg
-		jp dasm_page0_done
+		jp dasm_p0_done
 
 		;----------------
 		; LD A,(DE)
@@ -391,7 +400,7 @@ dasm_p0_s0_c2_r3:
 		call mkreg		; configure register arg
 		set arg_indirect,(ix+st_arg_flags)
 
-		jp dasm_page0_done
+		jp dasm_p0_done
 
 		;----------------
 		; LD (N),HL
@@ -412,7 +421,7 @@ dasm_p0_s0_c2_r4:
 		add ix,bc			; point to arg y struct
 		ld a,(iy+st_dasm_preg)		; pointer register symbol
 		call mkreg		; configure register arg
-		jp dasm_page0_done
+		jp dasm_p0_done
 
 		;----------------
 		; LD HL,(N)
@@ -434,7 +443,7 @@ dasm_p0_s0_c2_r5:
 		inc hl
 		call mkiadd	; configure indirect arg
 
-		jp dasm_page0_done
+		jp dasm_p0_done
 
 		;----------------
 		; LD (N),A
@@ -455,7 +464,7 @@ dasm_p0_s0_c2_r6:
 		add ix,bc			; point to arg y struct
 		ld a,reg_A
 		call mkreg		; configure register arg
-		jp dasm_page0_done
+		jp dasm_p0_done
 
 		;----------------
 		; LD A,(N)
@@ -476,14 +485,12 @@ dasm_p0_s0_c2_r7:
 		ld b,(hl)			; load MSB of address
 		inc hl
 		call mkiadd
-		jp dasm_page0_done
+		jp dasm_p0_done
 
 		;-----------------------------
 		; Page 0, Section 0, Column 3
+		; INC ss, DEC ss
 		;-----------------------------
-		;----------------
-		; INC ss
-		;----------------
 dasm_p0_s0_c3_re:
 		ld (ix+st_inst_opcode),op_INC
 		ld (ix+st_inst_argc),1		; one argument
@@ -491,8 +498,8 @@ dasm_p0_s0_c3_re:
 		and 0x3				; mask all but register bits
 		ld bc,st_inst_argx
 		add ix,bc			; point to arg x struc
-		call mkregss		; configure register ss arg
-		jp dasm_page0_done
+		call mkregss			; configure register ss arg
+		jp dasm_p0_done
 
 		;----------------
 		; DEC ss
@@ -505,7 +512,7 @@ dasm_p0_s0_c3_ro:
 		ld bc,st_inst_argx
 		add ix,bc			; point to arg x struc
 		call mkregss			; configure register ss arg
-		jp dasm_page0_done
+		jp dasm_p0_done
 
 		;-----------------------------
 		; Page 0, Section 0, Column 4
@@ -534,7 +541,7 @@ dasm_p0_s0_c45_20:
 		ld bc,st_inst_argx
 		add ix,bc			; point to arg x struct		
 		call mkregr
-		jp dasm_page0_done
+		jp dasm_p0_done
 
 		;-----------------------------
 		; Page 0, Section 0, Column 6
@@ -562,7 +569,7 @@ dasm_p0_s0_c6:
 		ld c,(hl)			; get immediate argument
 		inc hl
 		call mkimm
-		jp dasm_page0_done		
+		jp dasm_p0_done		
 
 		;-----------------------------
 		; Page 0, Section 1
@@ -573,7 +580,7 @@ dasm_p0_s1:
 		cp 0xd8
 		jr nz,dasm_p0_s1_10
 		ld a,op_HALT			; ---- HALT ----
-		jp dasm_page0_noarg
+		jp dasm_p0_noarg
 		
 		;----------------
 		; LD r,q
@@ -602,7 +609,7 @@ dasm_p0_s1_10:
 		ld bc,st_arg_size
 		add ix,bc			; point to arg y struct
 		call mkregr
-		jp dasm_page0_done
+		jp dasm_p0_done
 
 		;-------------------
 		; Page 0, Section 2
@@ -706,7 +713,7 @@ dasm_p0_s2_done:
 		pop ix				; recover IX
 		ld (ix+st_inst_opcode),a
 		ld (ix+st_inst_argc),c
-		jp dasm_page0_done
+		jp dasm_p0_done
 
 		;-------------------
 		; Page 0, Section 3
@@ -768,7 +775,7 @@ dasm_p0_s3_c0:
 		add ix,bc			; point at arg x struct
 		call mkflag
 
-		jp dasm_page0_done
+		jp dasm_p0_done
 
 		;-----------------------------
 		; Page 0, Section 3, Column 1
@@ -794,7 +801,7 @@ dasm_p0_s3_c1:
 		add ix,bc			; point to arg x struct
 		call mkregqq
 
-		jp dasm_page0_done		
+		jp dasm_p0_done		
 
 dasm_p0_s3_c1_r1357:
 		rla
@@ -802,9 +809,9 @@ dasm_p0_s3_c1_r1357:
 		
 		rla
 		ld	a,op_RET		; ---- RET ----
-		jp nc,dasm_page0_noarg
+		jp nc,dasm_p0_noarg
 		ld	a,op_EXX		; ---- EXX ----
-		jp	dasm_page0_noarg
+		jp	dasm_p0_noarg
 
 dasm_p0_s3_c1_r57:
 		rla
@@ -827,7 +834,7 @@ dasm_p0_s3_c1_r57:
 		call mkreg
 		set arg_indirect,(ix+st_arg_flags)	
 
-		jp dasm_page0_done
+		jp dasm_p0_done
 
 		;----------
 		; LD SP,HL
@@ -846,7 +853,7 @@ dasm_p0_s3_c1_r7:
 		ld a,(iy+st_dasm_preg)		; get pointer register symbol
 		call mkreg		
 
-		jp dasm_page0_done
+		jp dasm_p0_done
 
 		;-----------------------------
 		; Page 0, Section 3, Column 2
@@ -877,7 +884,7 @@ dasm_p0_s3_c2:
 		inc hl
 		call mkaadd
 
-		jp dasm_page0_done
+		jp dasm_p0_done
 
 		;-----------------------------
 		; Page 0, Section 3, Column 3
@@ -907,9 +914,9 @@ dasm_p0_s3_c3_r47:
 dasm_p0_s3_c3_r67:
 		rla
 		ld a,op_DI			; ---- DI ----
-		jp nc,dasm_page0_noarg
+		jp nc,dasm_p0_noarg
 		ld a,op_EI			; ---- EI ----
-		jp dasm_page0_noarg
+		jp dasm_p0_noarg
 
 		;-------
 		; JP nn
@@ -926,7 +933,7 @@ dasm_p0_s3_c3_r0:
 		inc hl
 		call mkaadd
 
-		jp dasm_page0_done		
+		jp dasm_p0_done		
 
 		;-----------
 		; OUT (n),A
@@ -947,7 +954,7 @@ dasm_p0_s3_c3_r2:
 		ld a,reg_A
 		call mkreg
 
-		jp dasm_page0_done
+		jp dasm_p0_done
 
 		;-----------
 		; IN A,(n)
@@ -968,7 +975,7 @@ dasm_p0_s3_c3_r3:
 		call mkimm
 		set arg_indirect,(ix+st_arg_flags)
 
-		jp dasm_page0_done
+		jp dasm_p0_done
 
 		;------------
 		; EX (SP),HL
@@ -988,7 +995,7 @@ dasm_p0_s3_c3_r4:
 		ld a,(iy+st_dasm_preg)		; pointer register symbol
 		call mkreg
 
-		jp dasm_page0_done
+		jp dasm_p0_done
 
 		;------------
 		; EX DE,HL
@@ -1007,7 +1014,7 @@ dasm_p0_s3_c3_r5:
 		ld a,reg_HL
 		call mkreg
 
-		jp dasm_page0_done
+		jp dasm_p0_done
 
 		;-----------------------------
 		; Page 0, Section 3, Column 4
@@ -1038,7 +1045,7 @@ dasm_p0_s3_c4:
 		inc hl
 		call mkaadd
 
-		jp dasm_page0_done
+		jp dasm_p0_done
 
 		;-----------------------------
 		; Page 0, Section 3, Column 5
@@ -1064,7 +1071,7 @@ dasm_p0_s3_c5:
 		add ix,bc			; point to arg x struct
 		call mkregqq
 
-		jp dasm_page0_done		
+		jp dasm_p0_done		
 
 dasm_p0_s3_c5_r1357:
 		rla
@@ -1093,7 +1100,7 @@ dasm_p0_s3_c5_r1:
 		inc hl
 		call mkaadd
 
-		jp dasm_page0_done		
+		jp dasm_p0_done		
 
 		;-----------------------------
 		; Page 0, Section 3, Column 6
@@ -1192,7 +1199,7 @@ dasm_p0_s3_c6_done:
 		pop ix
 		ld (ix+st_inst_opcode),a
 		ld (ix+st_inst_argc),c
-		jp dasm_page0_done
+		jp dasm_p0_done
 
 		;-----------------------------
 		; Page 0, Section 3, Column 7
@@ -1213,7 +1220,7 @@ dasm_p0_s3_c7:
 		ld bc,st_inst_argx
 		add ix,bc			; point to arg x struct
 		call mkzadd
-		jp dasm_page0_done
+		jp dasm_p0_done
 
 		;----------------------
 		; Extension Page CB
@@ -1224,8 +1231,9 @@ dasm_p0_s3_c7:
 		; Extension Page DD
 		;----------------------
 dasm_page_dd:
+		set arg_indexed,(iy+st_dasm_flags)
 		ld (iy+st_dasm_preg),reg_IX
-		jp dasm_page0_reentry
+		jp dasm_p0_reentry
 
 		;--------------------------
 		; Extension Page ED 
@@ -1236,15 +1244,25 @@ dasm_page_dd:
 		; Extension Page FD 
 		;--------------------------
 dasm_page_fd:
+		set arg_indexed,(iy+st_dasm_flags)
 		ld (iy+st_dasm_preg),reg_IY
-		jp dasm_page0_reentry
+		jp dasm_p0_reentry
 
 
-dasm_page0_noarg:
+dasm_p0_noarg:
 		ld (ix+st_inst_opcode),a	; mnemomic symbol index
 		ld (ix+st_inst_argc),0		; no arguments
 
-dasm_page0_done:
+dasm_p0_done:
+; 		; compute instruction length
+; 		push hl
+; 		ld c,(ix+st_inst_addr)
+; 		ld b,(ix+st_inst_addr+1)
+; 		or a				; clear carry
+; 		sbc hl,bc
+; 		ld (ix+st_inst_len),l
+; 		pop hl
+	
 		pop bc
 		pop ix
 		ret

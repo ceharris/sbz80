@@ -137,7 +137,7 @@ st_inst_argy	equ st_inst_argx + st_arg_size
 st_inst_size	equ st_inst_argy + st_arg_size
 
 ; Disassembler state structure displacements and size
-st_dasm_level	equ 0
+st_dasm_flags	equ 0
 st_dasm_preg	equ 1
 st_dasm_inst	equ 2
 st_dasm_usize	equ st_dasm_inst + st_inst_size

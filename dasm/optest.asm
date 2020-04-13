@@ -17,10 +17,6 @@
 optest		macro a_op,a_exp
 		local op,exp,done
 
-                ld (iy+st_dasm_level),0
-                ld (iy+st_dasm_preg),reg_HL
-                ld ix,dbuf+st_dasm_inst
-
 		ld hl,op
 		call dasm
                 ld de,cbuf

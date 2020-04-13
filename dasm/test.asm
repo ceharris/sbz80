@@ -735,6 +735,176 @@ test::
 		optest <otir>,'OTIR'
 		optest <otdr>,'OTDR'
 
+		; page DD section 0
+		optest <add ix,bc>,'ADD IX,BC'
+		optest <add ix,de>,'ADD IX,DE'
+		optest <add ix,ix>,'ADD IX,IX'
+		optest <add ix,sp>,'ADD IX,SP'
+		optest <ld ix,0xbeef>,'LD IX,0xBEEF'
+		optest <ld (0xbeef),ix>,'LD (0xBEEF),IX'
+		optest <ld ix,(0xbeef)>,'LD IX,(0xBEEF)'
+		optest <inc (ix+1)>,'INC (IX+1)'
+		optest <dec (ix-1)>,'DEC (IX-1)'
+		optest <ld (ix+1),0x55>,'LD (IX+1),0x55'
+
+		; page DD section 1
+		optest <ld b,(ix-1)>,'LD B,(IX-1)'
+		optest <ld c,(ix-1)>,'LD C,(IX-1)'
+		optest <ld d,(ix-1)>,'LD D,(IX-1)'
+		optest <ld e,(ix-1)>,'LD E,(IX-1)'
+		optest <ld h,(ix-1)>,'LD H,(IX-1)'
+		optest <ld l,(ix-1)>,'LD L,(IX-1)'
+		optest <ld a,(ix-1)>,'LD A,(IX-1)'
+		optest <ld (ix+1),b>,'LD (IX+1),B'
+		optest <ld (ix+1),c>,'LD (IX+1),C'
+		optest <ld (ix+1),d>,'LD (IX+1),D'
+		optest <ld (ix+1),e>,'LD (IX+1),E'
+		optest <ld (ix+1),h>,'LD (IX+1),H'
+		optest <ld (ix+1),l>,'LD (IX+1),L'
+		optest <ld (ix+1),a>,'LD (IX+1),A'
+
+		; page DD section 1
+		optest <add a,(ix-1)>,'ADD A,(IX-1)'
+		optest <adc a,(ix-1)>,'ADC A,(IX-1)'
+		optest <sub (ix-1)>,'SUB (IX-1)'
+		optest <sbc a,(ix-1)>,'SBC A,(IX-1)'
+		optest <and (ix-1)>,'AND (IX-1)'
+		optest <xor (ix-1)>,'XOR (IX-1)'
+		optest <or (ix-1)>,'OR (IX-1)'
+		optest <cp (ix-1)>,'CP (IX-1)'
+
+		; page DD section 3
+		optest <pop ix>,'POP IX'
+		optest <push ix>,'PUSH IX'
+		optest <ex (sp),ix>,'EX (SP),IX'
+		optest <jp (ix)>,'JP (IX)'
+		optest <ld sp,ix>,'LD SP,IX'
+
+		; page DD CB section 0
+		optest <rlc (ix+1)>,'RLC (IX+1)'
+		optest <rrc (ix+1)>,'RRC (IX+1)'
+		optest <rl (ix+1)>,'RL (IX+1)'
+		optest <rr (ix+1)>,'RR (IX+1)'
+		optest <sla (ix+1)>,'SLA (IX+1)'
+		optest <sra (ix+1)>,'SRA (IX+1)'
+		optest <sll (ix+1)>,'SLL (IX+1)'
+		optest <srl (ix+1)>,'SRL (IX+1)'
+
+		; page DD CB section 1
+		optest <bit 0,(ix+1)>,'BIT 0,(IX+1)'
+		optest <bit 1,(ix+1)>,'BIT 1,(IX+1)'
+		optest <bit 2,(ix+1)>,'BIT 2,(IX+1)'
+		optest <bit 3,(ix+1)>,'BIT 3,(IX+1)'
+		optest <bit 4,(ix+1)>,'BIT 4,(IX+1)'
+		optest <bit 5,(ix+1)>,'BIT 5,(IX+1)'
+		optest <bit 6,(ix+1)>,'BIT 6,(IX+1)'
+		optest <bit 7,(ix+1)>,'BIT 7,(IX+1)'
+
+		; page DD CB section 2
+		optest <res 0,(ix+1)>,'RES 0,(IX+1)'
+		optest <res 1,(ix+1)>,'RES 1,(IX+1)'
+		optest <res 2,(ix+1)>,'RES 2,(IX+1)'
+		optest <res 3,(ix+1)>,'RES 3,(IX+1)'
+		optest <res 4,(ix+1)>,'RES 4,(IX+1)'
+		optest <res 5,(ix+1)>,'RES 5,(IX+1)'
+		optest <res 6,(ix+1)>,'RES 6,(IX+1)'
+		optest <res 7,(ix+1)>,'RES 7,(IX+1)'
+
+		; page DD CB section 3
+		optest <set 0,(ix+1)>,'SET 0,(IX+1)'
+		optest <set 1,(ix+1)>,'SET 1,(IX+1)'
+		optest <set 2,(ix+1)>,'SET 2,(IX+1)'
+		optest <set 3,(ix+1)>,'SET 3,(IX+1)'
+		optest <set 4,(ix+1)>,'SET 4,(IX+1)'
+		optest <set 5,(ix+1)>,'SET 5,(IX+1)'
+		optest <set 6,(ix+1)>,'SET 6,(IX+1)'
+		optest <set 7,(ix+1)>,'SET 7,(IX+1)'
+
+		; page FD section 0
+		optest <add iy,bc>,'ADD IY,BC'
+		optest <add iy,de>,'ADD IY,DE'
+		optest <add iy,iy>,'ADD IY,IY'
+		optest <add iy,sp>,'ADD IY,SP'
+		optest <ld iy,0xbeef>,'LD IY,0xBEEF'
+		optest <ld (0xbeef),iy>,'LD (0xBEEF),IY'
+		optest <ld iy,(0xbeef)>,'LD IY,(0xBEEF)'
+		optest <inc (iy+1)>,'INC (IY+1)'
+		optest <dec (iy-1)>,'DEC (IY-1)'
+		optest <ld (iy+1),0x55>,'LD (IY+1),0x55'
+
+		; page FD section 1
+		optest <ld b,(iy-1)>,'LD B,(IY-1)'
+		optest <ld c,(iy-1)>,'LD C,(IY-1)'
+		optest <ld d,(iy-1)>,'LD D,(IY-1)'
+		optest <ld e,(iy-1)>,'LD E,(IY-1)'
+		optest <ld h,(iy-1)>,'LD H,(IY-1)'
+		optest <ld l,(iy-1)>,'LD L,(IY-1)'
+		optest <ld a,(iy-1)>,'LD A,(IY-1)'
+		optest <ld (iy+1),b>,'LD (IY+1),B'
+		optest <ld (iy+1),c>,'LD (IY+1),C'
+		optest <ld (iy+1),d>,'LD (IY+1),D'
+		optest <ld (iy+1),e>,'LD (IY+1),E'
+		optest <ld (iy+1),h>,'LD (IY+1),H'
+		optest <ld (iy+1),l>,'LD (IY+1),L'
+		optest <ld (iy+1),a>,'LD (IY+1),A'
+
+		; page FD section 1
+		optest <add a,(iy-1)>,'ADD A,(IY-1)'
+		optest <adc a,(iy-1)>,'ADC A,(IY-1)'
+		optest <sub (iy-1)>,'SUB (IY-1)'
+		optest <sbc a,(iy-1)>,'SBC A,(IY-1)'
+		optest <and (iy-1)>,'AND (IY-1)'
+		optest <xor (iy-1)>,'XOR (IY-1)'
+		optest <or (iy-1)>,'OR (IY-1)'
+		optest <cp (iy-1)>,'CP (IY-1)'
+
+		; page FD section 3
+		optest <pop iy>,'POP IY'
+		optest <push iy>,'PUSH IY'
+		optest <ex (sp),iy>,'EX (SP),IY'
+		optest <jp (iy)>,'JP (IY)'
+		optest <ld sp,iy>,'LD SP,IY'
+
+		; page FD CB section 0
+		optest <rlc (iy+1)>,'RLC (IY+1)'
+		optest <rrc (iy+1)>,'RRC (IY+1)'
+		optest <rl (iy+1)>,'RL (IY+1)'
+		optest <rr (iy+1)>,'RR (IY+1)'
+		optest <sla (iy+1)>,'SLA (IY+1)'
+		optest <sra (iy+1)>,'SRA (IY+1)'
+		optest <sll (iy+1)>,'SLL (IY+1)'
+		optest <srl (iy+1)>,'SRL (IY+1)'
+
+		; page FD CB section 1
+		optest <bit 0,(iy+1)>,'BIT 0,(IY+1)'
+		optest <bit 1,(iy+1)>,'BIT 1,(IY+1)'
+		optest <bit 2,(iy+1)>,'BIT 2,(IY+1)'
+		optest <bit 3,(iy+1)>,'BIT 3,(IY+1)'
+		optest <bit 4,(iy+1)>,'BIT 4,(IY+1)'
+		optest <bit 5,(iy+1)>,'BIT 5,(IY+1)'
+		optest <bit 6,(iy+1)>,'BIT 6,(IY+1)'
+		optest <bit 7,(iy+1)>,'BIT 7,(IY+1)'
+
+		; page FD CB section 2
+		optest <res 0,(iy+1)>,'RES 0,(IY+1)'
+		optest <res 1,(iy+1)>,'RES 1,(IY+1)'
+		optest <res 2,(iy+1)>,'RES 2,(IY+1)'
+		optest <res 3,(iy+1)>,'RES 3,(IY+1)'
+		optest <res 4,(iy+1)>,'RES 4,(IY+1)'
+		optest <res 5,(iy+1)>,'RES 5,(IY+1)'
+		optest <res 6,(iy+1)>,'RES 6,(IY+1)'
+		optest <res 7,(iy+1)>,'RES 7,(IY+1)'
+
+		; page FD CB section 3
+		optest <set 0,(iy+1)>,'SET 0,(IY+1)'
+		optest <set 1,(iy+1)>,'SET 1,(IY+1)'
+		optest <set 2,(iy+1)>,'SET 2,(IY+1)'
+		optest <set 3,(iy+1)>,'SET 3,(IY+1)'
+		optest <set 4,(iy+1)>,'SET 4,(IY+1)'
+		optest <set 5,(iy+1)>,'SET 5,(IY+1)'
+		optest <set 6,(iy+1)>,'SET 6,(IY+1)'
+		optest <set 7,(iy+1)>,'SET 7,(IY+1)'
+		
 ok:
 		ld hl,ok_msg
 		ld de,rbuf
@@ -795,7 +965,7 @@ ok_msg		db 3,"OK",0
 fail_msg	db 6, "FAIL:",0
 
 		dseg
-dbuf		ds	16
+dbuf		ds	32
 cbuf		ds	32
 rbuf		ds	64
 
