@@ -47,16 +47,16 @@ mkarg_flag:
 	; On entry:
 	;	IX -> target argument structure
 	;	IY -> disassembly state structure
+	;	HL -> next byte of instruction under decode
 	;	A = register `r`
-	;	C = displacement
 	;
 	; On return:
 	;	argument structure filled in
+	;	HL is incremented if the instruction is indexed
 	;	all registers except AF are preserved
 	;	
 mkarg_register_r:
 		push bc
-		push hl
 		
 		; is `r` the indirect register?
 		cp reg_indirect
@@ -67,11 +67,12 @@ mkarg_register_r:
 		ld (ix+st_arg_v),a
 
 		; set indexed flag and displacement if indexed instruction
-		ld a,(iy+st_dasm_flags)
-		and mask_indexed
+		cp reg_HL
 		jr z,mkarg_register_r_20
 		set arg_indexed,(ix+st_arg_flags)
-		ld (ix+st_arg_disp),c		; save displacement
+		ld a,(hl)
+		inc hl
+		ld (ix+st_arg_disp),a		; save displacement
 		jr mkarg_register_r_20
 
 mkarg_register_r_10:
@@ -79,6 +80,7 @@ mkarg_register_r_10:
 
 		; get register symbol index from lookup table
 		; start by getting offset into register lookup table
+		push hl
 		ld hl,reg_r_table
 		ld a,l				
 		add a,b
@@ -88,11 +90,11 @@ mkarg_register_r_10:
 		ld h,a				; HL -> entry for register `r`
 
 		ld a,(hl)			; get symbol index
+		pop hl
 		ld (ix+st_arg_flags),mask_register
 		ld (ix+st_arg_v),a
 
 mkarg_register_r_20:
-		pop hl
 		pop bc
 		ret		
 
@@ -160,7 +162,7 @@ mkarg_register_rr_10:
 mkarg_register_rr_20:
 		ld (ix+st_arg_flags),mask_register
 		ld (ix+st_arg_v),a
-		ld (ix+st_arg_disp),c
+		ld (ix+st_arg_disp),0
 		
 		pop hl
 		pop bc
@@ -194,6 +196,7 @@ mkarg_register:
 	;
 	; On entry:
 	;	IX -> target argument structure
+	;	IY -> disassembly state structure
 	;	A = register symbol
 	;	C = displacement
 	; On return:
@@ -201,10 +204,19 @@ mkarg_register:
 	;
 
 mkarg_register_indirect:
+		push af
 		ld (ix+st_arg_flags),mask_register | mask_indirect
 		ld (ix+st_arg_v),a
 		ld (ix+st_arg_v+1),0
+		
+		ld a,(iy+st_dasm_preg)
+		cp reg_HL
+		jr z,mkarg_register_indirect_10	
+		set arg_indexed,(ix+st_arg_flags)
 		ld (ix+st_arg_disp),c
+
+mkarg_register_indirect_10:
+		pop af
 		ret
 
 	;---------------------------------------------------------------

@@ -37,8 +37,7 @@ st_inst_size	equ st_inst_argy + st_arg_size
 ; Disassembler state structure displacements and size
 st_dasm_level	equ 0
 st_dasm_preg	equ 1
-st_dasm_flags	equ 2
-st_dasm_inst	equ 4
+st_dasm_inst	equ 2
 st_dasm_usize	equ st_dasm_inst + st_inst_size
 st_dasm_size	equ st_dasm_usize + (16 - st_dasm_usize % 16)
 
@@ -47,7 +46,6 @@ demo:
 		ld iy,dbuf
 		ld (iy+st_dasm_level),0		
 		ld (iy+st_dasm_preg),reg_HL
-		ld (iy+st_dasm_flags),0
 
 		ld ix,dbuf+st_dasm_inst
 
@@ -72,7 +70,7 @@ demo10:
 dasm_page0:
 		push ix
 		push bc
-
+dasm_page0_reentry:
 		ld a,(hl)			; fetch opcode
 		inc hl
 
@@ -654,8 +652,8 @@ dasm_p0_s2:
 		ld c,a				; save row and register bits
 		and 0xe0	
 		cp 0x40
-		jr z,dasm_p0_s2_r2		; handle SUB as special case
 		ld a,c				; recover row and register bits
+		jr z,dasm_p0_s2_r2		; handle SUB as special case
 
 		; now split into rows
 		rla
@@ -705,7 +703,6 @@ dasm_p0_s2_r47:
 		ld c,a				; save row bits
 		rra
 		rra
-		rra
 		and 0x7
 		call mkarg_register_r
 		ld a,c				; recover row bits
@@ -734,13 +731,10 @@ dasm_p0_s2_r2:
 		add ix,bc			; point to arg x struct
 
 		; get source register into lowest 3 bits of A
-		ld c,a				; save row bits
-		rra
 		rra
 		rra
 		and 0x7
 		call mkarg_register_r
-		ld a,c				; recover row bits
 		
 		ld c,1				; argument count
 		ld a,op_SUB
@@ -972,12 +966,6 @@ dasm_p0_s3_c3_r0:
 
 		jp dasm_page0_done		
 
-		;-------------
-		; prefix 0xCB
-		;-------------
-dasm_p0_s3_c3_r1:
-		halt		
-
 		;-----------
 		; OUT (n),A
 		;-----------
@@ -1121,12 +1109,12 @@ dasm_p0_s3_c5_r1357:
 		jr c,dasm_p0_s3_c5_r57
 		rla
 		jr nc,dasm_p0_s3_c5_r1
-		jr c,dasm_p0_s3_c5_r3
+		jp c,dasm_page_dd
 
 dasm_p0_s3_c5_r57:
 		rla
-		jr nc,dasm_p0_s3_c5_r5
-		jr dasm_p0_s3_c5_r7
+		jp nc,dasm_page_ed
+		jp dasm_page_fd
 
 		;---------
 		; CALL nn
@@ -1144,13 +1132,6 @@ dasm_p0_s3_c5_r1:
 		call mkarg_absolute_addr
 
 		jp dasm_page0_done		
-
-dasm_p0_s3_c5_r3:
-		halt
-dasm_p0_s3_c5_r5:
-		halt
-dasm_p0_s3_c5_r7:
-		halt
 
 		;-----------------------------
 		; Page 0, Section 3, Column 6
@@ -1379,6 +1360,17 @@ dasm_pcb_s13:
 
 		jp dasm_page0_done
 	
+dasm_page_dd:
+		ld (iy+st_dasm_preg),reg_IX
+		jp dasm_page0_reentry
+
+dasm_page_ed:
+		halt
+
+dasm_page_fd:
+		ld (iy+st_dasm_preg),reg_IY
+		jp dasm_page0_reentry
+
 dasm_page0_noarg:
 		ld (ix+st_inst_opcode),a	; mnemomic symbol index
 		ld (ix+st_inst_argc),0		; no arguments

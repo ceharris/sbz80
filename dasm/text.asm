@@ -373,7 +373,7 @@ to_hex16_same_byte:
 to_displacement:
 		ld a,c			; load displacement to convert 
 		or a
-		jr z,to_disp_zero	; zero is a special case
+		ret z			; zero is a special case
 		
 		and 0x80		; test sign bit
 		jr nz,to_disp_neg
@@ -419,7 +419,6 @@ to_disp_ge10:
 to_disp_lt10:
 		ld a,c
 		inc de			
-to_disp_zero:
 		add a,'0'
 		ld (de),a
 		inc de

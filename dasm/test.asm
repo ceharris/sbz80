@@ -561,5 +561,91 @@ test:
 		set 7,l
 		set 7,(hl)
 		set 7,a
+		; page DD section 0
+		add ix,bc
+		add ix,de
+		add ix,ix
+		add ix,sp
+		ld ix,0xaaaa
+		ld (0xbbbb),ix
+		ld ix,(0xcccc)
+		inc ix
+		dec ix
+		inc (ix+1)	
+		dec (ix-1)	
+		ld (ix+2),0x55
+		; page DD section 1 
+		ld b,(ix+0)
+		ld c,(ix+1)
+		ld d,(ix+2)
+		ld e,(ix+3)
+		ld h,(ix+4)
+		ld l,(ix+5)
+		ld a,(ix+7)
+		ld (ix+0),b
+		ld (ix+1),c
+		ld (ix+2),d
+		ld (ix+3),e
+		ld (ix+4),h
+		ld (ix+5),l
+		ld (ix+7),a
+		; page DD section 2
+		add a,(ix)
+		adc a,(ix+1)	
+		sub (ix-1)
+		sbc a,(ix-2)
+		and (ix+10)
+		xor (ix+11)
+		or (ix+12)
+		cp (ix+13)
+		; page DD section 3
+		pop ix
+		jp (ix)
+		ld sp,ix
+		ex (sp),ix
+		push ix
+		; page FD section 0
+		add iy,bc
+		add iy,de
+		add iy,iy
+		add iy,sp
+		ld iy,0xaaaa
+		ld (0xbbbb),iy
+		ld iy,(0xcccc)
+		inc iy
+		dec iy
+		inc (iy+1)	
+		dec (iy-1)	
+		ld (iy+2),0x55
+		; page FD section 1 
+		ld b,(iy+0)
+		ld c,(iy+1)
+		ld d,(iy+2)
+		ld e,(iy+3)
+		ld h,(iy+4)
+		ld l,(iy+5)
+		ld a,(iy+7)
+		ld (iy+0),b
+		ld (iy+1),c
+		ld (iy+2),d
+		ld (iy+3),e
+		ld (iy+4),h
+		ld (iy+5),l
+		ld (iy+7),a
+		; page FD section 2
+		add a,(iy)
+		adc a,(iy+1)	
+		sub (iy-1)
+		sbc a,(iy-2)
+		and (iy+10)
+		xor (iy+11)
+		or (iy+12)
+		cp (iy+13)
+		; page FD section 3
+		pop iy
+		jp (iy)
+		ld sp,iy
+		ex (sp),iy
+		push iy
 
 		nop
