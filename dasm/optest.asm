@@ -15,7 +15,7 @@
 	;	a_exp	string containing the expected disassembly
 	; 
 optest		macro a_op,a_exp
-		local op,exp,validate,match,done
+		local op,exp,done
 
                 ld (iy+st_dasm_level),0
                 ld (iy+st_dasm_preg),reg_HL
@@ -25,22 +25,11 @@ optest		macro a_op,a_exp
 		call dasm
                 ld de,cbuf
 		call i2str	
+		ld hl,exp
+		call validate
+		jr z,done
 
-		ld hl,exp
-		ld de,cbuf
-validate:
-		ld a,(de)
-		cp (hl)		
-		jr z,match
-		ld hl,exp
-		ld de,cbuf
-		jp fail	
-match:
-		inc hl
-		inc de
-		or a
-		jr nz,validate
-		jr done
+		jp fail
 
 op:		`a_op`
 exp:		db `a_exp`,0

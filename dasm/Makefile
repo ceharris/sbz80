@@ -45,7 +45,7 @@ clean:
 	zmac -o $(*F).rel -o $(*F).lst $<
 
 %.bin: %.hex
-	makebin $< $@
+	makebin -s 65536 $< $@
 
 %.z80: %.bin
 	z80-bin $< $@

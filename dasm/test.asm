@@ -15,7 +15,11 @@
 	;-------------------------------------------------------------
 	; test:
 	;
-	; Runs the suite of disassembly tests and returns if successful
+	; Runs the suite of disassembly tests.
+	; If all tests are successful, the CPU is halted with the Z flag
+	; set. If a test fails, the CPU is halted with the NZ flag set
+	; and `rbuf` contains the expected and actual disassembly for the
+	; failed test.
 	;
 test::
 		ld sp,0
@@ -337,6 +341,399 @@ test::
 		optest <rst 0x30>,'RST 0x30'
 		optest <rst 0x38>,'RST 0x38'
 
+		;page CB section 0 row 0
+		optest <rlc b>,'RLC B'
+		optest <rlc c>,'RLC C'
+		optest <rlc d>,'RLC D'
+		optest <rlc e>,'RLC E'
+		optest <rlc h>,'RLC H'
+		optest <rlc l>,'RLC L'
+		optest <rlc (hl)>,'RLC (HL)'
+		optest <rlc a>,'RLC A'
+
+		;page CB section 0 row 1
+		optest <rrc b>,'RRC B'
+		optest <rrc c>,'RRC C'
+		optest <rrc d>,'RRC D'
+		optest <rrc e>,'RRC E'
+		optest <rrc h>,'RRC H'
+		optest <rrc l>,'RRC L'
+		optest <rrc (hl)>,'RRC (HL)'
+		optest <rrc a>,'RRC A'
+
+		;page CB section 0 row 2
+		optest <rl b>,'RL B'
+		optest <rl c>,'RL C'
+		optest <rl d>,'RL D'
+		optest <rl e>,'RL E'
+		optest <rl h>,'RL H'
+		optest <rl l>,'RL L'
+		optest <rl (hl)>,'RL (HL)'
+		optest <rl a>,'RL A'
+
+		;page CB section 0 row 3
+		optest <rr b>,'RR B'
+		optest <rr c>,'RR C'
+		optest <rr d>,'RR D'
+		optest <rr e>,'RR E'
+		optest <rr h>,'RR H'
+		optest <rr l>,'RR L'
+		optest <rr (hl)>,'RR (HL)'
+		optest <rr a>,'RR A'
+
+		;page CB section 0 row 4
+		optest <sla b>,'SLA B'
+		optest <sla c>,'SLA C'
+		optest <sla d>,'SLA D'
+		optest <sla e>,'SLA E'
+		optest <sla h>,'SLA H'
+		optest <sla l>,'SLA L'
+		optest <sla (hl)>,'SLA (HL)'
+		optest <sla a>,'SLA A'
+
+		;page CB section 0 row 5
+		optest <sra b>,'SRA B'
+		optest <sra c>,'SRA C'
+		optest <sra d>,'SRA D'
+		optest <sra e>,'SRA E'
+		optest <sra h>,'SRA H'
+		optest <sra l>,'SRA L'
+		optest <sra (hl)>,'SRA (HL)'
+		optest <sra a>,'SRA A'
+
+		;page CB section 0 row 6
+		optest <sll b>,'SLL B'
+		optest <sll c>,'SLL C'
+		optest <sll d>,'SLL D'
+		optest <sll e>,'SLL E'
+		optest <sll h>,'SLL H'
+		optest <sll l>,'SLL L'
+		optest <sll (hl)>,'SLL (HL)'
+		optest <sll a>,'SLL A'
+
+		;page CB section 0 row 7
+		optest <srl b>,'SRL B'
+		optest <srl c>,'SRL C'
+		optest <srl d>,'SRL D'
+		optest <srl e>,'SRL E'
+		optest <srl h>,'SRL H'
+		optest <srl l>,'SRL L'
+		optest <srl (hl)>,'SRL (HL)'
+		optest <srl a>,'SRL A'
+
+		; page CB section 1 row 0
+		optest <bit 0,b>,'BIT 0,B'
+		optest <bit 0,c>,'BIT 0,C'
+		optest <bit 0,d>,'BIT 0,D'
+		optest <bit 0,e>,'BIT 0,E'
+		optest <bit 0,h>,'BIT 0,H'
+		optest <bit 0,l>,'BIT 0,L'
+		optest <bit 0,(hl)>,'BIT 0,(HL)'
+		optest <bit 0,a>,'BIT 0,A'
+
+		; page CB section 1 row 1
+		optest <bit 1,b>,'BIT 1,B'
+		optest <bit 1,c>,'BIT 1,C'
+		optest <bit 1,d>,'BIT 1,D'
+		optest <bit 1,e>,'BIT 1,E'
+		optest <bit 1,h>,'BIT 1,H'
+		optest <bit 1,l>,'BIT 1,L'
+		optest <bit 1,(hl)>,'BIT 1,(HL)'
+		optest <bit 1,a>,'BIT 1,A'
+
+		; page CB section 1 row 2
+		optest <bit 2,b>,'BIT 2,B'
+		optest <bit 2,c>,'BIT 2,C'
+		optest <bit 2,d>,'BIT 2,D'
+		optest <bit 2,e>,'BIT 2,E'
+		optest <bit 2,h>,'BIT 2,H'
+		optest <bit 2,l>,'BIT 2,L'
+		optest <bit 2,(hl)>,'BIT 2,(HL)'
+		optest <bit 2,a>,'BIT 2,A'
+
+		; page CB section 1 row 3
+		optest <bit 3,b>,'BIT 3,B'
+		optest <bit 3,c>,'BIT 3,C'
+		optest <bit 3,d>,'BIT 3,D'
+		optest <bit 3,e>,'BIT 3,E'
+		optest <bit 3,h>,'BIT 3,H'
+		optest <bit 3,l>,'BIT 3,L'
+		optest <bit 3,(hl)>,'BIT 3,(HL)'
+		optest <bit 3,a>,'BIT 3,A'
+
+		; page CB section 1 row 4
+		optest <bit 4,b>,'BIT 4,B'
+		optest <bit 4,c>,'BIT 4,C'
+		optest <bit 4,d>,'BIT 4,D'
+		optest <bit 4,e>,'BIT 4,E'
+		optest <bit 4,h>,'BIT 4,H'
+		optest <bit 4,l>,'BIT 4,L'
+		optest <bit 4,(hl)>,'BIT 4,(HL)'
+		optest <bit 4,a>,'BIT 4,A'
+
+		; page CB section 1 row 5
+		optest <bit 5,b>,'BIT 5,B'
+		optest <bit 5,c>,'BIT 5,C'
+		optest <bit 5,d>,'BIT 5,D'
+		optest <bit 5,e>,'BIT 5,E'
+		optest <bit 5,h>,'BIT 5,H'
+		optest <bit 5,l>,'BIT 5,L'
+		optest <bit 5,(hl)>,'BIT 5,(HL)'
+		optest <bit 5,a>,'BIT 5,A'
+
+		; page CB section 1 row 6
+		optest <bit 6,b>,'BIT 6,B'
+		optest <bit 6,c>,'BIT 6,C'
+		optest <bit 6,d>,'BIT 6,D'
+		optest <bit 6,e>,'BIT 6,E'
+		optest <bit 6,h>,'BIT 6,H'
+		optest <bit 6,l>,'BIT 6,L'
+		optest <bit 6,(hl)>,'BIT 6,(HL)'
+		optest <bit 6,a>,'BIT 6,A'
+
+		; page CB section 1 row 7
+		optest <bit 7,b>,'BIT 7,B'
+		optest <bit 7,c>,'BIT 7,C'
+		optest <bit 7,d>,'BIT 7,D'
+		optest <bit 7,e>,'BIT 7,E'
+		optest <bit 7,h>,'BIT 7,H'
+		optest <bit 7,l>,'BIT 7,L'
+		optest <bit 7,(hl)>,'BIT 7,(HL)'
+		optest <bit 7,a>,'BIT 7,A'
+
+		; page CB section 2 row 0
+		optest <res 0,b>,'RES 0,B'
+		optest <res 0,c>,'RES 0,C'
+		optest <res 0,d>,'RES 0,D'
+		optest <res 0,e>,'RES 0,E'
+		optest <res 0,h>,'RES 0,H'
+		optest <res 0,l>,'RES 0,L'
+		optest <res 0,(hl)>,'RES 0,(HL)'
+		optest <res 0,a>,'RES 0,A'
+
+		; page CB section 2 row 1
+		optest <res 1,b>,'RES 1,B'
+		optest <res 1,c>,'RES 1,C'
+		optest <res 1,d>,'RES 1,D'
+		optest <res 1,e>,'RES 1,E'
+		optest <res 1,h>,'RES 1,H'
+		optest <res 1,l>,'RES 1,L'
+		optest <res 1,(hl)>,'RES 1,(HL)'
+		optest <res 1,a>,'RES 1,A'
+
+		; page CB section 2 row 2
+		optest <res 2,b>,'RES 2,B'
+		optest <res 2,c>,'RES 2,C'
+		optest <res 2,d>,'RES 2,D'
+		optest <res 2,e>,'RES 2,E'
+		optest <res 2,h>,'RES 2,H'
+		optest <res 2,l>,'RES 2,L'
+		optest <res 2,(hl)>,'RES 2,(HL)'
+		optest <res 2,a>,'RES 2,A'
+
+		; page CB section 2 row 3
+		optest <res 3,b>,'RES 3,B'
+		optest <res 3,c>,'RES 3,C'
+		optest <res 3,d>,'RES 3,D'
+		optest <res 3,e>,'RES 3,E'
+		optest <res 3,h>,'RES 3,H'
+		optest <res 3,l>,'RES 3,L'
+		optest <res 3,(hl)>,'RES 3,(HL)'
+		optest <res 3,a>,'RES 3,A'
+
+		; page CB section 2 row 4
+		optest <res 4,b>,'RES 4,B'
+		optest <res 4,c>,'RES 4,C'
+		optest <res 4,d>,'RES 4,D'
+		optest <res 4,e>,'RES 4,E'
+		optest <res 4,h>,'RES 4,H'
+		optest <res 4,l>,'RES 4,L'
+		optest <res 4,(hl)>,'RES 4,(HL)'
+		optest <res 4,a>,'RES 4,A'
+
+		; page CB section 2 row 5
+		optest <res 5,b>,'RES 5,B'
+		optest <res 5,c>,'RES 5,C'
+		optest <res 5,d>,'RES 5,D'
+		optest <res 5,e>,'RES 5,E'
+		optest <res 5,h>,'RES 5,H'
+		optest <res 5,l>,'RES 5,L'
+		optest <res 5,(hl)>,'RES 5,(HL)'
+		optest <res 5,a>,'RES 5,A'
+
+		; page CB section 2 row 6
+		optest <res 6,b>,'RES 6,B'
+		optest <res 6,c>,'RES 6,C'
+		optest <res 6,d>,'RES 6,D'
+		optest <res 6,e>,'RES 6,E'
+		optest <res 6,h>,'RES 6,H'
+		optest <res 6,l>,'RES 6,L'
+		optest <res 6,(hl)>,'RES 6,(HL)'
+		optest <res 6,a>,'RES 6,A'
+
+		; page CB section 2 row 7
+		optest <res 7,b>,'RES 7,B'
+		optest <res 7,c>,'RES 7,C'
+		optest <res 7,d>,'RES 7,D'
+		optest <res 7,e>,'RES 7,E'
+		optest <res 7,h>,'RES 7,H'
+		optest <res 7,l>,'RES 7,L'
+		optest <res 7,(hl)>,'RES 7,(HL)'
+		optest <res 7,a>,'RES 7,A'
+
+		; page CB section 3 row 0
+		optest <set 0,b>,'SET 0,B'
+		optest <set 0,c>,'SET 0,C'
+		optest <set 0,d>,'SET 0,D'
+		optest <set 0,e>,'SET 0,E'
+		optest <set 0,h>,'SET 0,H'
+		optest <set 0,l>,'SET 0,L'
+		optest <set 0,(hl)>,'SET 0,(HL)'
+		optest <set 0,a>,'SET 0,A'
+
+		; page CB section 3 row 1
+		optest <set 1,b>,'SET 1,B'
+		optest <set 1,c>,'SET 1,C'
+		optest <set 1,d>,'SET 1,D'
+		optest <set 1,e>,'SET 1,E'
+		optest <set 1,h>,'SET 1,H'
+		optest <set 1,l>,'SET 1,L'
+		optest <set 1,(hl)>,'SET 1,(HL)'
+		optest <set 1,a>,'SET 1,A'
+
+		; page CB section 3 row 2
+		optest <set 2,b>,'SET 2,B'
+		optest <set 2,c>,'SET 2,C'
+		optest <set 2,d>,'SET 2,D'
+		optest <set 2,e>,'SET 2,E'
+		optest <set 2,h>,'SET 2,H'
+		optest <set 2,l>,'SET 2,L'
+		optest <set 2,(hl)>,'SET 2,(HL)'
+		optest <set 2,a>,'SET 2,A'
+
+		; page CB section 3 row 3
+		optest <set 3,b>,'SET 3,B'
+		optest <set 3,c>,'SET 3,C'
+		optest <set 3,d>,'SET 3,D'
+		optest <set 3,e>,'SET 3,E'
+		optest <set 3,h>,'SET 3,H'
+		optest <set 3,l>,'SET 3,L'
+		optest <set 3,(hl)>,'SET 3,(HL)'
+		optest <set 3,a>,'SET 3,A'
+
+		; page CB section 3 row 4
+		optest <set 4,b>,'SET 4,B'
+		optest <set 4,c>,'SET 4,C'
+		optest <set 4,d>,'SET 4,D'
+		optest <set 4,e>,'SET 4,E'
+		optest <set 4,h>,'SET 4,H'
+		optest <set 4,l>,'SET 4,L'
+		optest <set 4,(hl)>,'SET 4,(HL)'
+		optest <set 4,a>,'SET 4,A'
+
+		; page CB section 3 row 5
+		optest <set 5,b>,'SET 5,B'
+		optest <set 5,c>,'SET 5,C'
+		optest <set 5,d>,'SET 5,D'
+		optest <set 5,e>,'SET 5,E'
+		optest <set 5,h>,'SET 5,H'
+		optest <set 5,l>,'SET 5,L'
+		optest <set 5,(hl)>,'SET 5,(HL)'
+		optest <set 5,a>,'SET 5,A'
+
+		; page CB section 3 row 6
+		optest <set 6,b>,'SET 6,B'
+		optest <set 6,c>,'SET 6,C'
+		optest <set 6,d>,'SET 6,D'
+		optest <set 6,e>,'SET 6,E'
+		optest <set 6,h>,'SET 6,H'
+		optest <set 6,l>,'SET 6,L'
+		optest <set 6,(hl)>,'SET 6,(HL)'
+		optest <set 6,a>,'SET 6,A'
+
+		; page CB section 3 row 7
+		optest <set 7,b>,'SET 7,B'
+		optest <set 7,c>,'SET 7,C'
+		optest <set 7,d>,'SET 7,D'
+		optest <set 7,e>,'SET 7,E'
+		optest <set 7,h>,'SET 7,H'
+		optest <set 7,l>,'SET 7,L'
+		optest <set 7,(hl)>,'SET 7,(HL)'
+		optest <set 7,a>,'SET 7,A'
+
+		; page CB section 1 column 0
+		optest <in b,(c)>,'IN B,(C)'
+		optest <in c,(c)>,'IN C,(C)'
+		optest <in d,(c)>,'IN D,(C)'
+		optest <in e,(c)>,'IN E,(C)'
+		optest <in h,(c)>,'IN H,(C)'
+		optest <in l,(c)>,'IN L,(C)'
+		optest <in a,(c)>,'IN A,(C)'
+
+		; page CB section 1 column 1
+		optest <out (c),b>,'OUT (C),B'
+		optest <out (c),c>,'OUT (C),C'
+		optest <out (c),d>,'OUT (C),D'
+		optest <out (c),e>,'OUT (C),E'
+		optest <out (c),h>,'OUT (C),H'
+		optest <out (c),l>,'OUT (C),L'
+		optest <out (c),a>,'OUT (C),A'
+
+		; page CB section 1 column 2
+		optest <sbc hl,bc>,'SBC HL,BC'
+		optest <adc hl,bc>,'ADC HL,BC'
+		optest <sbc hl,de>,'SBC HL,DE'
+		optest <adc hl,de>,'ADC HL,DE'
+		optest <sbc hl,hl>,'SBC HL,HL'
+		optest <adc hl,hl>,'ADC HL,HL'
+		optest <sbc hl,sp>,'SBC HL,SP'
+		optest <adc hl,sp>,'ADC HL,SP'
+
+		; page CB section 1 column 3
+		optest <ld (0xbeef),bc>,'LD (0xBEEF),BC'
+		optest <ld bc,(0xbeef)>,'LD BC,(0xBEEF)'
+		optest <ld (0xbeef),de>,'LD (0xBEEF),DE'
+		optest <ld de,(0xbeef)>,'LD DE,(0xBEEF)'
+		optest <ld (0xbeef),sp>,'LD (0xBEEF),SP'
+		optest <ld sp,(0xbeef)>,'LD SP,(0xBEEF)'
+
+		; page CB section 1 columns 4-7
+		optest <neg>,'NEG'
+		optest <retn>,'RETN'
+		optest <reti>,'RETI'
+		optest <im 0>,'IM 0'
+		optest <im 1>,'IM 1'
+		optest <im 2>,'IM 2'
+		optest <ld i,a>,'LD I,A'
+		optest <ld r,a>,'LD R,A'
+		optest <ld a,i>,'LD A,I'
+		optest <ld a,r>,'LD A,R'
+		optest <rrd>,'RRD'
+		optest <rld>,'RLD'
+
+		; page CB section 2 column 0
+		optest <ldi>,'LDI'
+		optest <ldd>,'LDD'
+		optest <ldir>,'LDIR'
+		optest <lddr>,'LDDR'
+
+		; page CB section 2 column 1
+		optest <cpi>,'CPI'
+		optest <cpd>,'CPD'
+		optest <cpir>,'CPIR'
+		optest <cpdr>,'CPDR'
+		
+		; page CB section 2 column 2
+		optest <ini>,'INI'
+		optest <ind>,'IND'
+		optest <inir>,'INIR'
+		optest <indr>,'INDR'
+
+		; page CB section 2 column 3
+		optest <outi>,'OUTI'
+		optest <outd>,'OUTD'
+		optest <otir>,'OTIR'
+		optest <otdr>,'OTDR'
 
 ok:
 		ld hl,ok_msg
@@ -345,7 +742,7 @@ ok:
 		ld b,0
 		inc hl
 		ldir
-		xor a				; clear carry, set zero
+		xor a				; set Z flag
 		halt
 
 fail:
@@ -374,12 +771,28 @@ fail20:
 		or a
 		jr nz,fail20
 		
-		or 0xff
-		scf
+		or 0xff				; set NZ flag
 		halt
 
+validate:
+		push hl
+		ld de,cbuf
+validate10:
+		ld a,(de)
+		cp (hl)		
+		jr z,validate20
+		pop hl
+		ret
+validate20:
+		inc hl
+		inc de
+		or a
+		jr nz,validate10
+		pop hl
+		ret
+
 ok_msg		db 3,"OK",0
-fail_msg	db 7, "FAIL: ",0
+fail_msg	db 6, "FAIL:",0
 
 		dseg
 dbuf		ds	16
