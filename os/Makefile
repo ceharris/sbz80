@@ -37,7 +37,7 @@ IMAGE=sbos
 
 all: $(IMAGE)
 
-$(IMAGE): $(IMAGE).z80
+$(IMAGE): $(IMAGE).hex
 
 eeprom: $(IMAGE).hex
 	$(PU) -p $(EEPROM_TYPE) -f ihex -w $<
@@ -51,17 +51,6 @@ zero-eeprom:
 
 dump-eeprom:
 	$(PU) -p $(EEPROM_TYPE) -r - | xxd
-
-kitest:
-	zmac -o kitest.hex -o kitest.lst kitest.asm
-	sendihex8 kitest.hex $(PORT) $(SPEED)
-	
-
-$(IMAGE).z80: $(IMAGE).bin
-	z80-bin $< $@
-
-$(IMAGE).bin: $(IMAGE).hex
-	makebin $< $@
 
 $(IMAGE).hex: $(MODULES)
 	$(LD) -c -m -s $(IMAGE).sym -o $@ -P $(CSEG_ADDR) -D $(DSEG_ADDR) $(MODULES)
@@ -86,11 +75,6 @@ svc.asm: lomem.lst
 
 clean:
 	-rm -f svc.asm *.rel *.lst *.sym *.hex *.bin *.z80
-
-%.z80: %.asm
-	zmac -o $(*F).hex -o $(*).lst $<
-	makebin $(*F).hex $(*F).bin
-	z80-bin $(*F).bin $(*F).z80
 
 %.rel %.lst: %.asm
 	zmac -o $(*F).rel -o $(*F).lst $<
