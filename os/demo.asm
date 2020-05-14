@@ -3,14 +3,11 @@
 		include svc.asm
 
 		cseg
+
 demo::
-		ld a,@doinit
-		rst 0x28
-
 		; initialize last keyboard scan
-		ld a,0xff
 		ld hl,last_ki
-
+		ld a,0xff
 		ld (hl),a
 		inc hl
 		ld (hl),a
@@ -25,7 +22,6 @@ demo::
 		ld (hl),a
 		inc hl
 		ld (hl),a
-
 demo10:
 		call kiscan
 		call tkscan
@@ -76,8 +72,6 @@ tkscan:
 		rst 0x28
 
 		; divide by 10,000 to get number of seconds
-		ld a,@d3210
-		rst 0x28
 		ld a,@d3210
 		rst 0x28
 		ld a,@d3210
