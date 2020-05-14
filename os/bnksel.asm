@@ -1,5 +1,8 @@
 		name bnksel
+
+		extern syscfg
 		include ports.asm
+
 bank_mask       equ 	0xfc		; lower 2 bits are bank selection
 
 	;--------------------------------------------------------------
@@ -22,21 +25,13 @@ bnksel::
 		cp 4			; clear carry flag if out of range
 		jr nc,banksel10
 
-		ld a,(sys_cfg_reg)
+		ld a,(syscfg)
 		and bank_mask		; clear bank selection
 		or c			; set bank selection bits
-		ld (sys_cfg_reg),a	; store configuration register
+		ld (syscfg),a		; store configuration register
 		out (sys_cfg_port),a	; set configuration register
 		xor a			; set zero flag
 		ret
 banksel10:
 		or a			; clear zero flag
 		ret		
-
-
-		dseg
-vars:
-sys_cfg_reg     ds 1                    ; system config register contents
-
-align		ds (align - vars) % 2 	; pad for alignment
- 

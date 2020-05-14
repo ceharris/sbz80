@@ -4,24 +4,31 @@
 # the SVC dispatch table at 0x100
 CSEG_ADDR=0200 
 
-# Align the data segment on the next 256-byte page boundary after
-# the interrupt mode 2 dispatch table at 0x2000
-DSEG_ADDR=2100
+# Align the data segment at the start of RAM
+DSEG_ADDR=2000
 
-# Port and speed for EEPROM programmer
-PORT=/dev/cu.usbmodem14101
-SPEED=115200
+# Linker utility
+LD=ld80
+
+# EEPROM programmer utility and flags
+PU=minipro
+EEPROM_TYPE=AT28C64B
 
 MODULES=lomem.rel \
 	post.rel \
 	init.rel \
 	rpeek.rel \
+	div.rel \
 	bnksel.rel \
+	tk.rel \
 	do.rel \
+	ki.rel \
 	exit.rel \
         hex.rel \
+	setisr.rel \
 	setvec.rel \
 	strcpy.rel \
+	sysvar.rel \
 	demo.rel
 
 IMAGE=sbos
@@ -33,7 +40,22 @@ all: $(IMAGE)
 $(IMAGE): $(IMAGE).z80
 
 eeprom: $(IMAGE).hex
-	sendihex8 $< $(PORT) $(SPEED)
+	$(PU) -p $(EEPROM_TYPE) -f ihex -w $<
+
+erase-eeprom:
+	$(PU) -p $(EEPROM_TYPE) -E
+
+zero-eeprom: 
+	zmac -o zero.hex zero.asm	
+	$(PU) -p $(EEPROM_TYPE) -f ihex -w zero.hex
+
+dump-eeprom:
+	$(PU) -p $(EEPROM_TYPE) -r - | xxd
+
+kitest:
+	zmac -o kitest.hex -o kitest.lst kitest.asm
+	sendihex8 kitest.hex $(PORT) $(SPEED)
+	
 
 $(IMAGE).z80: $(IMAGE).bin
 	z80-bin $< $@
@@ -42,15 +64,33 @@ $(IMAGE).bin: $(IMAGE).hex
 	makebin $< $@
 
 $(IMAGE).hex: $(MODULES)
-	ld80 -c -m -s $(IMAGE).sym -o $@ -P $(CSEG_ADDR) -D $(DSEG_ADDR) $(MODULES)
+	$(LD) -c -m -s $(IMAGE).sym -o $@ -P $(CSEG_ADDR) -D $(DSEG_ADDR) $(MODULES)
 
 demo.rel: svc.asm
 
+lomem.rel: lomem.asm memory.asm
+
+post.rel: post.asm memory.asm ports.asm
+
+init.rel: init.asm memory.asm isr.asm ports.asm ctc.asm
+
+tk.rel: tk.asm isr.asm ports.asm ctc.asm
+
+do.rel: do.asm ports.asm pio.asm
+
+ki.rel: ki.asm memory.asm isr.asm ports.asm ctc.asm pio.asm
+
 svc.asm: lomem.lst
-	grep "^@" $< | sed -E 's/ *= *([0-9a-fA-F]*)/ equ 0x\1/' >$@
+	grep "^@" $< | sed -E 's/ *= *([0-9a-fA-F]*)/		equ 0x\1/' >$@
+
 
 clean:
 	-rm -f svc.asm *.rel *.lst *.sym *.hex *.bin *.z80
+
+%.z80: %.asm
+	zmac -o $(*F).hex -o $(*).lst $<
+	makebin $(*F).hex $(*F).bin
+	z80-bin $(*F).bin $(*F).z80
 
 %.rel %.lst: %.asm
 	zmac -o $(*F).rel -o $(*F).lst $<

@@ -1,10 +1,11 @@
 		name do
+
+		extern d3210
 		include ports.asm
+		include pio.asm
 
-lcd_ctl		equ dsp_port_base + 0
-lcd_data   	equ dsp_port_base + 1
-
-pio_mode3	equ 0xcf
+lcd_ctl		equ do_port_base + 0
+lcd_data   	equ do_port_base + 1
 
 lcd_out_mask	equ 0
 lcd_in_mask	equ 0x80
@@ -37,6 +38,17 @@ lcd_shift	equ 0x1
 
 		cseg
 
+	;---------------------------------------------------------------
+	; SVC: doinit
+	; Initializes the LCD display. The result is similar to the
+	; power-on reset state. The initialization need only be performed
+	; once at startup. Reinitializing is time consuming and should
+	; be avoided.
+	;
+	;	* 2 rows of display
+	;	* display on with blinking cursor
+	;	* entry mode set to increment without shifting the display
+	;
 doinit::
 		; clear the LCD display memory
 	 	ld c,lcd_clr_disp
@@ -56,30 +68,121 @@ doinit::
 
 		ret
 
+	;---------------------------------------------------------------
+	; SVC: doclr
+	; Clears the LCD display memory.
+	;
+	; On return:
+	;	AF, C destroyed
+	;
 doclr::
 		ld c,lcd_clr_disp
 		call doexec
 		ret
 
+	;---------------------------------------------------------------
+	; SVC: dohome
+	; Resets the LCD to the home position, reverting and shift and
+	; positioning the cursor at 0,0.
+	;
+	; On return
+	;	AF, C destroyed
+	;
 dohome::
 		ld c,lcd_go_home
 		call doexec
 		ret
 
+	;---------------------------------------------------------------
+	; SVC: dogoto
+	; Positions the LCD cursor.
+	;
+	; On entry:
+	;	B = row (zero based), C = column (zero based)
+	;
+	; On return
+	;	AF, C destroyed
+	;
 dogoto::
 		ld a,b			; start at offset 0
 		or a
 		ld a,0			; start at offset 0
-		jr z,dogotocol	; jump if no row offsets to add
-dogotorow:
+		jr z,dogoto_col		; jump if no row offsets to add
+dogoto_row:
 		add lcd_row_length	; add a row offset
-		djnz dogotorow	; for all rows
-dogotocol:
+		djnz dogoto_row		; for all rows
+dogoto_col:
 		add c			; add column offset
 		or lcd_ddram_addr	; set command bit
 		ld c,a			; C is the command to execute
 		call doexec		; execute it
 		ret
+
+	;---------------------------------------------------------------
+	; SVC: dop10w
+	; Displays a 32-bit unsigned integer in decimal notation.
+	;
+	; On entry:
+	;	DEHL is the quantity to display
+	; On return:
+	;	AF, BC, DE, HL destroyed 
+	;	(only index and special purpose registers preserved)
+	;
+dop10w_bsize	equ	11		; ten digits + null terminator
+dop10w::
+		push ix
+		ld ix,-dop10w_bsize	; two's complement of buffer size
+		add ix,sp		; subtract buffer size 
+		ld sp,ix		; reserve buffer space
+
+		ld bc,dop10w_bsize-1
+		add ix,bc		; point to end of buffer
+		ld (ix),0		; null terminator
+			
+dop10w_10:
+		; convert to decimal by repetitive division
+		call d3210		; divide DEHL by 10
+		add a,'0'		; convert remainder to decimal digit
+		dec ix
+		ld (ix),a		; store digit
+		
+		; anything left in the lower 16 bits ?
+                ld a,l
+                or h
+                jr nz,dop10w_10
+
+		; anything left in the upper 32 bits ?
+                ld a,e
+                or d
+                jr nz,dop10w_10
+dop10w_20:
+		; display the result
+		ld a,(ix)
+		inc ix 
+		or a
+		jr z,dop10w_30		; go if null terminator
+		ld c,a			; character to be displayed
+		call doputc
+		jr dop10w_20
+dop10w_30:
+		; restore stack
+		ld ix,dop10w_bsize
+		add ix,sp		; release buffer space
+		ld sp,ix		
+
+		pop ix			
+		ret		
+
+	;---------------------------------------------------------------
+	; SVC: doputs
+	; Displays a null-terminated string at current cursor position.
+	;
+	; On entry:
+	;	HL points to the string to display
+	; On return:
+	;	HL points to the null terminator
+	;	AF, C destroyed
+	;
 doputs::
 		ld a,(hl)
 		or a
@@ -90,14 +193,24 @@ doputs::
 		jr doputs
 		ret
 
+	;---------------------------------------------------------------
+	; SVC: doputc
+	; Displays a character at the current cursor position.
+	;
+	; On entry:
+	;	C is the character to display
+	; 
+	; On return:
+	;	AF destroyed
+	;
 doputc::
 		call dowait
 
 		; set PIO port for LCD data to mode 3 
 		ld a,pio_mode3
-	 	out (lcd_data+2),a
+	 	out (lcd_data+pio_cfg),a
 		xor a			; zero => all lines are outputs
-		out (lcd_data+2),a
+		out (lcd_data+pio_cfg),a
 
 		; put the character into the data register
 		ld a,c			; A is the character to output
@@ -109,20 +222,30 @@ doputc::
 		out (lcd_ctl),a		; lower enable, deselect data reg
 		ret
 
+	;---------------------------------------------------------------
+	; doexec: 
+	; Executes a instruction on the LCD.
+	;
+	; On entry:
+	;	C is the instruction to execute
+	;
+	; On return:
+	; 	AF destroyed
+	;
 doexec:
 		; set PIO port for LCD control to mode 3 
 		ld a,pio_mode3
-		out (lcd_ctl+2),a
+		out (lcd_ctl+pio_cfg),a
 		xor a			; zero => all lines are outputs
-		out (lcd_ctl+2),a
+		out (lcd_ctl+pio_cfg),a
 
 		call dowait		; wait until LCD isn't busy
 
 		; set PIO port for LCD data to mode 3 
 		ld a,pio_mode3
-	 	out (lcd_data+2),a
+	 	out (lcd_data+pio_cfg),a
 		xor a			; zero => all lines are outputs
-		out (lcd_data+2),a
+		out (lcd_data+pio_cfg),a
 
 		; put the instruction in the LCD register	
 		ld a,c			; C is the instruction
@@ -134,15 +257,19 @@ doexec:
 		out (lcd_ctl),a		; lower enable flag
 		ret
 
+	;---------------------------------------------------------------
+	; dowait:
+	; Waits for the LCD busy bit to clear.
+	;
 dowait:
 		push bc
 
 		; set PIO port for LCD data to mode 3 
 		ld a,pio_mode3
-		out (lcd_data+2),a
+		out (lcd_data+pio_cfg),a
 		ld a,lcd_in_mask	; set busy bit as input
-		out (lcd_data+2),a
-dobusy:
+		out (lcd_data+pio_cfg),a
+dowait_10:
 		; read busy bit
 		ld a,lcd_rd + lcd_e
 		out (lcd_ctl),a
@@ -154,7 +281,7 @@ dobusy:
 		; test busy bit
 		ld a,c
 		and lcd_busy
-		jr nz,dobusy
+		jr nz,dowait_10
 
 		pop bc
 		ret

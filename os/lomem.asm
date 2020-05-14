@@ -1,7 +1,7 @@
 		name lomem
 
-		extern post
 		extern init
+		extern post
 		extern rpeek
 		extern vrst10
 		extern vrst18
@@ -17,6 +17,9 @@
 	;
 		org 0x0
 		jp post
+noprst::	ret
+nopisr::	ei
+		reti
 
 	;--------------------------------------------------------------
 	; RST 0x08 vector (reserved)
@@ -79,10 +82,10 @@
 	; by the A register.
 	;
 		org 0x40
-svc_dispatch::
+svc_dispatch:
         	push hl			; save caller's HL
         	ld h,svc_page		; point to SVC function table page
-		add a,a			; 2 bytes per SVC entry point
+		add a,a			; 2-bytes per entry
  		ld l,a			; now HL points at entry point address
 
 		ld a,(hl)		; get entry point LSB
@@ -97,10 +100,9 @@ svc_dispatch::
 
 	;--------------------------------------------------------------
 	; NMI restart vector
-	;
+	; 
 		org 0x66
-nmi::
-		retn				; nothing to do	
+		retn                            ; nothing to do
 
 	;--------------------------------------------------------------
 	; Supervisor call table
@@ -110,9 +112,25 @@ nmi::
 svc_table:
 svc_page	equ high(svc_table)		; page address of svc_table
 
+		extern exit
+_exit		dw exit
+@exit		equ (_exit - svc_table)/2
+
+		extern d32x8
+_d32x8		dw d32x8
+@d32x8		equ (_d32x8 - svc_table)/2
+
+		extern d3210
+_d3210		dw d3210
+@d3210		equ (_d3210 - svc_table)/2
+
 		extern bnksel
 _bnksel		dw bnksel
 @bnksel		equ (_bnksel - svc_table)/2
+
+		extern tkread
+_tkread		dw tkread
+@tkread		equ (_tkread - svc_table)/2
 
 		extern doclr
 _doclr		dw doclr
@@ -138,9 +156,17 @@ _doputc		dw doputc
 _doputs		dw doputs
 @doputs		equ (_doputs - svc_table)/2
 
-		extern exit
-_exit		dw exit
-@exit		equ (_exit - svc_table)/2
+		extern dop10w
+_dop10w		dw dop10w
+@dop10w		equ (_dop10w - svc_table)/2
+
+		extern kiptr
+_kiptr		dw kiptr
+@kiptr		equ (_kiptr - svc_table)/2
+
+		extern kiread
+_kiread		dw kiread	
+@kiread		equ (_kiread - svc_table)/2
 
 		extern hex16
 _hex16		dw hex16
@@ -154,6 +180,10 @@ _hex8		dw hex8
 _rpcpy		dw rpcpy
 @rpcpy		equ (_rpcpy - svc_table)/2
 
+		extern setisr
+_setisr		dw setisr
+@setisr		equ (_setisr - svc_table)/2
+
 		extern setvec
 _setvec		dw setvec
 @setvec		equ (_setvec - svc_table)/2
@@ -161,8 +191,5 @@ _setvec		dw setvec
 		extern strcpy
 _strcpy		dw strcpy
 @strcpy		equ (_strcpy - svc_table)/2
-
-		org smem_start
-vectab::	ds im2_table_size		; interrupt vector table
 
 		end

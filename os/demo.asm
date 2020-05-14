@@ -1,206 +1,218 @@
 		name demo
-		include svc.asm
 
-rbuf_addr	equ 0x4000
-cbuf_addr	equ rbuf_addr + 32
+		include svc.asm
 
 		cseg
 demo::
 		ld a,@doinit
 		rst 0x28
 
-		rst 0x30
-		ld hl,rbuf_addr
-		ld a,@rpcpy
-		rst 0x28
-		
-		; copy template to character buffer
-		ld hl,gpregs1
-		ld de,cbuf_addr
-		ld a,@strcpy
-		rst 0x28
+		; initialize last keyboard scan
+		ld a,0xff
+		ld hl,last_ki
 
-		; convert stored AF to hex
-		ld bc,(rbuf_addr+0)
-		ld hl,cbuf_addr+3
-		ld a,@hex16
-		rst 0x28
+		ld (hl),a
+		inc hl
+		ld (hl),a
+		inc hl
 
-		; convert stored BC to hex
-		ld bc,(rbuf_addr+2)
-		ld hl,cbuf_addr+11
-		ld a,@hex16
+		; initialize last tick count
+		inc a
+		ld (hl),a
+		inc hl
+		ld (hl),a
+		inc hl
+		ld (hl),a
+		inc hl
+		ld (hl),a
+
+demo10:
+		call kiscan
+		call tkscan
+		jr demo10
+
+kiscan:
+		ld a,@kiread
 		rst 0x28
+		ld e,l
+		ld d,h
+		ld hl,last_ki
+		ld a,e
+		cp (hl)
+		jr nz,kiscan10
+		ld a,d
+		inc hl
+		cp (hl)
+		ret z
+kiscan10:
+		ld (hl),d
+		dec hl
+		ld (hl),e
+		call tobin
+		ret		
 		
-		; display registers in buffer on line 1
-		ld a,@doclr
-		rst 0x28
+tobin:
 		ld bc,0
 		ld a,@dogoto
 		rst 0x28
-		ld hl,cbuf_addr
-		ld a,@doputs
+
+		ld b,16
+tobin10:
+		sla e
+		rl d
+		ld c,'0'
+		jr nc,tobin20
+		inc c
+tobin20:
+		ld a,@doputc
+		rst 0x28
+		djnz tobin10
+		ret
+
+ticks_per_sec	equ 10000
+
+tkscan:
+		ld a,@tkread
 		rst 0x28
 
-		; copy template to character buffer
-		ld hl,gpregs2
-		ld de,cbuf_addr
-		ld a,@strcpy
+		; divide by 10,000 to get number of seconds
+		ld a,@d3210
+		rst 0x28
+		ld a,@d3210
+		rst 0x28
+		ld a,@d3210
+		rst 0x28
+		ld a,@d3210
+		rst 0x28
+		ld a,@d3210
 		rst 0x28
 
-		; convert stored DE to hex
-		ld bc,(rbuf_addr+4)
-		ld hl,cbuf_addr+3
-		ld a,@hex16
-		rst 0x28
+		; get number of seconds into BCDE
+		ld c,e
+		ld b,d
+		ld e,l
+		ld d,h
 
-		; convert stored HL to hex
-		ld bc,(rbuf_addr+6)
-		ld hl,cbuf_addr+11
-		ld a,@hex16
-		rst 0x28
+		; save current count
+		ld hl,this_tc
+		ld (hl),e
+		inc hl
+		ld (hl),d
+		inc hl
+		ld (hl),c
+		inc hl
+		ld (hl),b
+
+		; compute the difference
+		ld bc,this_tc
+		ld de,diff_tc
+		ld hl,last_tc
+		ld a,(bc)			; byte 0 of this
+		inc bc			
+		sub (hl)			; minus byte 0 of last
+		inc hl
+		ld (de),a			; store byte 0 of diff
+		inc de
+		ld a,(bc)			; byte 1 of this
+		inc bc
+		sbc (hl)			; minus byte 1 of last
+		inc hl
+		ld (de),a			; store byte 1 of diff
+		inc de
+		ld a,(bc)			; byte 2 of this
+		inc bc
+		sbc (hl)			; minus byte 2 of last
+		inc hl
+		ld (de),a			; store byte 2 of diff
+		inc de
+		ld a,(bc)			; byte 3 of this
+		inc bc
+		sbc (hl)			; minus byte 3 of last
+		inc hl
+		ld (de),a			; store byte 3 of diff
+		inc de
+
+		; store this count as last count
+		ld bc,this_tc
+		ld hl,last_tc
+		ld a,(bc)			; byte 0 of this
+		inc bc
+		ld (hl),a			; store as byte 0 of last
+		inc hl
+		ld a,(bc)			; byte 1 of this
+		inc bc
+		ld (hl),a			; store as byte 1 of last
+		inc hl
+		ld a,(bc)			; byte 2 of this
+		inc bc
+		ld (hl),a			; store as byte 2 of last
+		inc hl
+		ld a,(bc)			; byte 3 of this
+		inc bc
+		ld (hl),a			; store as byte 3 of last
+		inc hl
+
+		; is the difference at least one second
+		ld hl,diff_tc
+		ld a,(hl)
+		inc hl
+		or a
+		jr nz,tkscan10
 		
-		; display registers in buffer on line 2
+		ld a,(hl)
+		inc hl
+		or a
+		jr nz,tkscan10		
+
+		ld a,(hl)
+		inc hl
+		or a
+		jr nz,tkscan10		
+
+		ld a,(hl)
+		inc hl
+		or a
+		ret z
+
+tkscan10:		
 		ld bc,0x0100
 		ld a,@dogoto
 		rst 0x28
-		ld hl,cbuf_addr
+
+		ld hl,blanks
 		ld a,@doputs
-		rst 0x28
+		rst 0x28		
 
-		; copy template to character buffer
-		ld hl,agpregs1
-		ld de,cbuf_addr
-		ld a,@strcpy
-		rst 0x28
-
-		; convert stored AF' to hex
-		ld bc,(rbuf_addr+8)
-		ld hl,cbuf_addr+4
-		ld a,@hex16
-		rst 0x28
-
-		; convert stored BC' to hex
-		ld bc,(rbuf_addr+10)
-		ld hl,cbuf_addr+12
-		ld a,@hex16
-		rst 0x28
-
-		call delay
-		
-		; display registers in buffer on line 1
-		ld a,@doclr
-		rst 0x28
-		ld bc,0
-		ld a,@dogoto
-		rst 0x28
-		ld hl,cbuf_addr
-		ld a,@doputs
-		rst 0x28
-
-		; copy template to character buffer
-		ld hl,agpregs2
-		ld de,cbuf_addr
-		ld a,@strcpy
-		rst 0x28
-
-		; convert stored DE' to hex
-		ld bc,(rbuf_addr+12)
-		ld hl,cbuf_addr+4
-		ld a,@hex16
-		rst 0x28
-
-		; convert stored HL' to hex
-		ld bc,(rbuf_addr+14)
-		ld hl,cbuf_addr+12
-		ld a,@hex16
-		rst 0x28
-		
-		; display registers in buffer on line 2
 		ld bc,0x0100
 		ld a,@dogoto
 		rst 0x28
-		ld hl,cbuf_addr
-		ld a,@doputs
-		rst 0x28
 
-		; copy template to character buffer
-		ld hl,ixregs
-		ld de,cbuf_addr
-		ld a,@strcpy
-		rst 0x28
+		ld hl,this_tc
+		ld (hl),c
+		inc hl
+		ld (hl),b
+		inc hl
+		ld (hl),e
+		inc hl
+		ld (hl),d
+		ld l,c
+		ld h,b
 
-		; convert stored IX to hex
-		ld bc,(rbuf_addr+16)
-		ld hl,cbuf_addr+3
-		ld a,@hex16
+		; display the current tick count
+		ld hl,this_tc
+		ld a,@dop10w
 		rst 0x28
-
-		; convert stored IY to hex
-		ld bc,(rbuf_addr+18)
-		ld hl,cbuf_addr+11
-		ld a,@hex16
-		rst 0x28
-		
-		call delay
-
-		; display registers in buffer on line 1
-		ld a,@doclr
-		rst 0x28
-		ld bc,0
-		ld a,@dogoto
-		rst 0x28
-		ld hl,cbuf_addr
-		ld a,@doputs
-		rst 0x28
-
-		; copy template to character buffer
-		ld hl,mregs1
-		ld de,cbuf_addr
-		ld a,@strcpy
-		rst 0x28
-
-		; convert stored SP to hex
-		ld bc,(rbuf_addr+22)
-		ld hl,cbuf_addr+3
-		ld a,@hex16
-		rst 0x28
-
-		; convert stored PC to hex
-		ld bc,(rbuf_addr+24)
-		ld hl,cbuf_addr+11
-		ld a,@hex16
-		rst 0x28
-		
-		; display registers in buffer on line 2
-		ld bc,0x0100
-		ld a,@dogoto
-		rst 0x28
-		ld hl,cbuf_addr
-		ld a,@doputs
-		rst 0x28
-
-		call delay
 
 		ret
 
-delay:
-		ld hl,16384
-delay10:
-		ld b,l
-delay20:
-		djnz delay20
-		dec h
-		ret z
-		jr delay10
-	
 
-gpregs1		db "AF=xxxx BC=xxxx",0
-gpregs2		db "DE=xxxx HL=xxxx",0
-agpregs1	db "AF'=xxxx BC'=xxxx",0
-agpregs2	db "DE'=xxxx HL'=xxxx",0
-ixregs		db "IX=xxxx IY=xxxx",0
-mregs1		db "SP=xxxx PC=xxxx",0
-mregs2		db "I=XX R=XX",0
+blanks		dc 	' ',16
+		db	0
+
+		dseg
+last_ki		ds 	2
+last_tc		ds 	4
+this_tc		ds 	4
+diff_tc		ds 	4
 
 		end

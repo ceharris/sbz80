@@ -1,18 +1,10 @@
 		name setvec
-default_vec	equ 0x8
 
-	;--------------------------------------------------------------
-	; inivec:
-	; Initializes the user-programmable restart vectors
-		cseg
-inivec::
-		ld hl,default_vec
-		ld (vrst10),hl
-		ld (vrst18),hl
-		ld (vrst20),hl
-		ld (vrst38),hl
-		ret
-		
+		extern vrst10
+		extern vrst18
+		extern vrst20
+		extern vrst38
+
 	;--------------------------------------------------------------
 	; SVC: setvec
 	; Sets a restart vector. Restart vectors 0x10, 0x18, 0x20,
@@ -46,13 +38,5 @@ setvec38:
 		ret nz			; return NZ if not RST 0x38
 		ld (vrst38),hl	; store vector
 		ret
-
-		dseg
-vars:
-vrst10::     ds 	2		; RST 10 vector
-vrst18::     ds 	2		; RST 18 vector
-vrst20::     ds 	2		; RST 20 vector
-vrst38::     ds 	2		; RST 38 vector
-align		ds	(align-vars)%2	; pad for alignment
 
 		end
