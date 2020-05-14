@@ -16,7 +16,7 @@
 	; RST 0 vector (system reset)
 	;
 		org 0x0
-		jp post
+		jp init
 noprst::	ret
 nopisr::	ei
 		reti
