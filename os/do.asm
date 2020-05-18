@@ -4,8 +4,8 @@
 		include ports.asm
 		include pio_defs.asm
 
-lcd_ctl		equ pio_port_base + 0
-lcd_data   	equ pio_port_base + 1
+lcd_ctl		equ pio_port_base + pio_port_a
+lcd_data   	equ pio_port_base + pio_port_b
 
 lcd_out_mask	equ 0
 lcd_in_mask	equ 0x80
@@ -206,25 +206,20 @@ doputs::
 doputc::
 		call dowait
 
-		; set PIO port for LCD data to mode 3 
-		ld a,pio_mode3
-	 	out (lcd_data+pio_cfg),a
-		xor a			; zero => all lines are outputs
-		out (lcd_data+pio_cfg),a
-
 		; put the character into the data register
 		ld a,c			; A is the character to output
 		out (lcd_data),a
 
-		ld a,lcd_dr+lcd_e	; raise enable, select data reg
-		out (lcd_ctl),a
-		xor a
-		out (lcd_ctl),a		; lower enable, deselect data reg
+		in a,(lcd_ctl)
+		or lcd_dr | lcd_e		
+		out (lcd_ctl),a 	; DR=1, E=1
+		and low(not(lcd_dr | lcd_e))
+		out (lcd_ctl),a		; DR=0, E=0
 		ret
 
 	;---------------------------------------------------------------
 	; doexec: 
-	; Executes a instruction on the LCD.
+	; Executes an instruction on the LCD.
 	;
 	; On entry:
 	;	C is the instruction to execute
@@ -235,20 +230,15 @@ doputc::
 doexec:
 		call dowait		; wait until LCD isn't busy
 
-		; set PIO port for LCD data to mode 3 
-		ld a,pio_mode3
-	 	out (lcd_data+pio_cfg),a
-		xor a			; zero => all lines are outputs
-		out (lcd_data+pio_cfg),a
-
 		; put the instruction in the LCD register	
 		ld a,c			; C is the instruction
 		out (lcd_data),a
 		
-		ld a,lcd_e
-		out (lcd_ctl),a		; raise enable flag
-		xor a
-		out (lcd_ctl),a		; lower enable flag
+		in a,(lcd_ctl)
+		or lcd_e
+		out (lcd_ctl),a		; E=1
+		and low(not(lcd_e))
+		out (lcd_ctl),a		; E=0
 		ret
 
 	;---------------------------------------------------------------
@@ -261,21 +251,29 @@ dowait:
 		; set PIO port for LCD data to mode 3 
 		ld a,pio_mode3
 		out (lcd_data+pio_cfg),a
-		ld a,lcd_in_mask	; set busy bit as input
+		ld a,lcd_in_mask	; set mask for input
 		out (lcd_data+pio_cfg),a
 dowait_10:
 		; read busy bit
-		ld a,lcd_rd + lcd_e
-		out (lcd_ctl),a
+		in a,(lcd_ctl)
+		or lcd_rd | lcd_e	
+		out (lcd_ctl),a 	; RD=1, E=1
 		in a,(lcd_data)
 		ld c,a
-		ld a,lcd_rd
-		out (lcd_ctl),a
+		in a,(lcd_ctl)
+		and low(not(lcd_rd | lcd_e))	
+		out (lcd_ctl),a 	; RD=0, E=0
 
 		; test busy bit
 		ld a,c
 		and lcd_busy
 		jr nz,dowait_10
+
+		; set PIO port for LCD data to mode 3 
+		ld a,pio_mode3
+	 	out (lcd_data+pio_cfg),a
+		ld a,lcd_out_mask	; set mask for output
+		out (lcd_data+pio_cfg),a
 
 		pop bc
 		ret

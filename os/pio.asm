@@ -23,7 +23,7 @@
 	; PA4 -- Keyboard register parallel load enable (output)
 	; PA5 -- Keyboard register serial clock (output)
 	; PA6 -- (unused, not connected) (output)
-	; PA7 -- LCD busy bit (input) (*see note below) 
+	; PA7 -- (unused, not connected) (output)
 	; PB0 -- LCD display D0 pin (output)
 	; PB1 -- LCD display D1 pin (output)
 	; PB2 -- LCD display D2 pin (output)
@@ -32,12 +32,6 @@
 	; PB5 -- LCD display D5 pin (output)
 	; PB6 -- LCD display D6 pin (output)
 	; PB7 -- LCD display D7 pin (output)
-	;
-	; (*) The LCD busy bit is a function of pin D7 of the display 
-	; controller, but is connected to both PA7 and PB7. This approach
-	; simplifies the PIO mode 3 programming (at the cost of an 
-	; otherwise unused pin) since the role of each pin (input or 
-	; output) is fixed.
 	;
 	; The keyboard is scanned and debounced during a timer 
 	; interrupt, and the display programming is performed 
