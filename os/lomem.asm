@@ -116,6 +116,10 @@ svc_page	equ high(svc_table)		; page address of svc_table
 _exit		dw exit
 @exit		equ (_exit - svc_table)/2
 
+		extern m16x8
+_m16x8		dw m16x8
+@m16x8		equ (_m16x8 - svc_table)/2
+
 		extern d32x8
 _d32x8		dw d32x8
 @d32x8		equ (_d32x8 - svc_table)/2
@@ -124,6 +128,14 @@ _d32x8		dw d32x8
 _d3210		dw d3210
 @d3210		equ (_d3210 - svc_table)/2
 
+		extern d32x16
+_d32x16		dw d32x16
+@d32x16		equ (_d32x16 - svc_table)/2
+
+		extern d16x8
+_d16x8		dw d16x8
+@d16x8		equ (_d16x8 - svc_table)/2
+
 		extern bnksel
 _bnksel		dw bnksel
 @bnksel		equ (_bnksel - svc_table)/2
@@ -131,6 +143,10 @@ _bnksel		dw bnksel
 		extern tkread
 _tkread		dw tkread
 @tkread		equ (_tkread - svc_table)/2
+
+		extern tkrdms
+_tkrdms		dw tkrdms
+@tkrdms		equ (_tkrdms - svc_table)/2
 
 		extern doclr
 _doclr		dw doclr

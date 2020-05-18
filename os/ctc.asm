@@ -1,23 +1,72 @@
-;-----------------------------
-; Definitions for the Z80 CTC
-;-----------------------------
+	;--------------------------------------------------------------
+	; Mainboard CTC Support
+	;
+	; The mainboard is equipped with two Z80 CTC units, providing
+	; a total of 8 programmable timer/counter channels. Three of
+	; the channels are unassigned and available for programming as
+	; timers or for hardware interfacing.
+	;	
+	; Eight contiguous I/O ports are assigned to the mainboard CTC
+	; channels; CTC-A channels 0-3 and CTC-B channels 0-3 are 
+	; assigned in order.
+	;
+	; The standard Z80 interrupt priority chain is implemented for 
+	; each of the CTC units. CTC-A is the highest priority device in 
+	; the chain attached to the Z80 and CTC-B is at a lower priority
+	; The CTC prioritizes channel interrupt events in channel order, 
+	; therefore the interrupt priority of the channels corresponds 
+	; to the order in which the channels are assigned to I/O ports, 
+	; with CTC-A channel 0 having the highest priority and CTC-B channel
+	; 3 having the lowest priority.
+	; 
+	; Channel Asignments
+	; ------------------
+	; CTC-A channel 0: timer tick
+	; CTC-A channel 1: (reserved for future SIO)
+	; CTC-A channel 2: (reserved for future SIO)
+	; CTC-A channel 3: delay service function
+	; CTC-B channel 0: (unassigned)
+	; CTC-B channel 1: (unassigned)
+	; CTC-B channel 2: (unassigned)
+	; CTC-B channel 3: keyboard scan and debounce
+	; 
 
-; Control word bits
-ctc_ei		equ	0x80		; enable interrupts
-ctc_counter	equ 	0x40		; counter mode
-ctc_timer	equ 	0		; timer mode
-ctc_pre256	equ	0x20		; prescale by 256
-ctc_pre16	equ	0		; prescale by 16
-ctc_rising	equ	0x10		; trigger on rising edge
-ctc_falling	equ	0		; trigger on falling edge
-ctc_trigger	equ	0x8		; start timer on trigger
-ctc_auto	equ	0		; start timer automatically
-ctc_tc		equ	0x4		; time constant
-ctc_reset	equ	0x2		; software reset
-ctc_ctrl	equ	0x1		; control word
+		include isr.asm
+		include ports.asm
+		include ctc_defs.asm
 
-; Port offsets for channels
-ctc_ch0		equ 	ctc_port_base + 0	
-ctc_ch1		equ	ctc_ch0 + 1
-ctc_ch2		equ	ctc_ch0 + 2
-ctc_ch3		equ	ctc_ch0 + 3
+		cseg
+
+	;--------------------------------------------------------------
+	; ctcini:
+	; Initializes the mainboard CTC units
+	;
+
+ctcini::
+		; set all channels as externally triggered counters,
+		; with per-channel interrupts disabled
+
+		ld a,ctc_default
+		out (ctc_ch0),a
+		out (ctc_ch1),a
+		out (ctc_ch2),a
+		out (ctc_ch3),a
+		out (ctc_ch4),a
+		out (ctc_ch5),a
+		out (ctc_ch6),a
+		out (ctc_ch7),a
+
+		; set CTC base interrupt vector for CTC-A
+		; other channels used fixed offset from this base
+		ld a,2*isr_ctc_ch0
+		out (ctc_ch0),a
+
+		; set CTC base interrupt vector for CTC-B
+		; other channels used fixed offset from this base
+		ld a,2*isr_ctc_ch4
+		out (ctc_ch4),a
+
+		ret
+
+		end
+

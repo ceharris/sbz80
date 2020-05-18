@@ -4,17 +4,23 @@
 		name ki
 
 		include memory.asm
-		include pio.asm
-		include ports.asm
 		include isr.asm
-		include ctc.asm
+		include ports.asm
+		include ctc_defs.asm
+		include pio_defs.asm
 		
+		extern syscfg
 		extern kisamp
 		extern kistat
 		extern setisr
-		extern syscfg
 
-ki_port		equ ki_port_base + pio_port_a
+ki_port		equ 	pio_port_base + pio_port_a
+ki_ctc_ch	equ 	ctc_ch4
+ki_isr_vec	equ 	isr_ctc_ch4
+
+ki_ctc_cfg	equ 	ctc_ei|ctc_timer|ctc_pre256|ctc_tc|ctc_reset|ctc_ctrl
+ki_ctc_tc	equ 	8		; time constant for 500 kHz clock
+
 ki_ser_in	equ 0x8
 ki_shift	equ 0x10
 ki_clock	equ 0x20
@@ -39,23 +45,20 @@ kiinit10:
 		djnz kiinit10
 
 		ld hl,kidbnc		; address of keyboard ISR
-		ld c,isr_ctc_ch3	; interrupt vector number
+		ld c,ki_isr_vec		; interrupt vector number
 		call setisr		; set ISR vector
 
-ctc_ch3_cfg	equ ctc_ei|ctc_timer|ctc_pre256|ctc_tc|ctc_reset|ctc_ctrl
-ctc_ch3_tc	equ 8			; time constant for 500 kHz clock
-
-		ld a,ctc_ch3_cfg
-		out (ctc_ch3),a		; configure channel 3
+		ld a,ki_ctc_cfg
+		out (ki_ctc_ch),a	; configure our channel
 
 		ld a,(syscfg)
 		and 0x3			; get clock speed from config
 		ld b,a			
-		ld a,ctc_ch3_tc		; initial TC
+		ld a,ki_ctc_tc		; initial TC
 kiinit20:
 		rlca			; double TC with clock speed
 		djnz kiinit20
-		out (ctc_ch3),a		; set channel 3 time constant
+		out (ki_ctc_ch),a	; set time constant
 
 		ret
 
@@ -71,19 +74,13 @@ kiinit20:
 	;
 kiraw::
 		push bc
-		; use PIO mode 3
-		ld a,pio_mode3
-		out (ki_port + pio_cfg),a
-		
-		; shift register's QH output is the only input bit
-		ld a,ki_ser_in
-		out (ki_port + pio_cfg),a
-		
+
 		xor a
 		ld l,a
 		ld h,a
 
 		; toggle SH/LD# from high to low to load the shift register
+		in a,(ki_port)
 		or ki_shift			; SH/LD#=1, CLK=0
 		out (ki_port),a		
 		xor a				; SH/LD#=0, CLK=0
@@ -105,7 +102,8 @@ kiraw10:
 		set 0,l	
 kiraw20:
 		; pulse clock line to shift next bit into input
-		ld a,ki_clock | ki_shift	; SH/LD#=1, CLK=1
+		in a,(ki_port)
+		or ki_clock | ki_shift		; SH/LD#=1, CLK=1
 		out (ki_port),a
 		and ki_shift			; SH/LD#=1, CLK=0
 		out (ki_port),a		

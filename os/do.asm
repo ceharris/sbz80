@@ -2,10 +2,10 @@
 
 		extern d3210
 		include ports.asm
-		include pio.asm
+		include pio_defs.asm
 
-lcd_ctl		equ do_port_base + 0
-lcd_data   	equ do_port_base + 1
+lcd_ctl		equ pio_port_base + 0
+lcd_data   	equ pio_port_base + 1
 
 lcd_out_mask	equ 0
 lcd_in_mask	equ 0x80
@@ -233,12 +233,6 @@ doputc::
 	; 	AF destroyed
 	;
 doexec:
-		; set PIO port for LCD control to mode 3 
-		ld a,pio_mode3
-		out (lcd_ctl+pio_cfg),a
-		xor a			; zero => all lines are outputs
-		out (lcd_ctl+pio_cfg),a
-
 		call dowait		; wait until LCD isn't busy
 
 		; set PIO port for LCD data to mode 3 

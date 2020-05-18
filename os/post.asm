@@ -3,6 +3,7 @@
 		include ports.asm
 
 		extern init
+		extern pioini
 		extern doinit
 		extern dohome
 		extern dogoto
@@ -22,11 +23,12 @@ smem_size	equ	umem_start - smem_start
 post::
 		; initialize system configuration register
 		; need this to ensure upper bank zero is selected
-;		xor a
-;		out (sys_cfg_port),a			
+		xor a
+		out (sys_cfg_port),a			
 
 		; note: use of stack assumes memory is viable
 		ld sp,umem_start - buflen
+		call pioini
 		call doinit
 
 		ld ix,0				; zero test count
@@ -191,6 +193,22 @@ post_counts:
 		cp num_passes
 		jp nz,post_again		; do next pass
 
+		in a,(sys_cfg_port)		; get bank bits
+		rlca				; convert to	
+		rlca				;   bank number
+		inc a				; next bank
+		cp 3			
+		jr nc,post_done			; no more banks
+		rrca				; convert to
+		rrca				;   selection bits
+		out (sys_cfg_port),a		
+		ld ix,0				; zero pass count
+		jp post_again			; test next bank
+
+post_done:
+		xor a	
+		out (sys_cfg_port),a		; select bank zero
+
 		; zero out all writable memory
                 ld hl,ram_post_start
                 ld bc,ram_post_size-1
@@ -213,7 +231,7 @@ post_wait:
 		jr nz,post_wait
 		jp init
 
-num_passes	equ 4
+num_passes	equ 2
 buflen		equ 24
 addrbuf		equ 9
 totbuf		equ 2

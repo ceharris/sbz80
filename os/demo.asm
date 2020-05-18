@@ -1,6 +1,7 @@
 		name demo
 
 		include svc.asm
+		include ports.asm
 
 		cseg
 
@@ -13,17 +14,11 @@ demo::
 		ld (hl),a
 		inc hl
 
-		; initialize last tick count
-		inc a
-		ld (hl),a
-		inc hl
-		ld (hl),a
-		inc hl
-		ld (hl),a
-		inc hl
-		ld (hl),a
+		; initialize last seconds count
+		xor a
+		ld (last_secs),a
+
 demo10:
-		call kiscan
 		call tkscan
 		jr demo10
 
@@ -39,12 +34,22 @@ kiscan:
 		ld a,d
 		inc hl
 		cp (hl)
-		ret z
+		jr nz,kiscan10
+
+		in a,(sys_cfg_port)
+		and ~1
+		out (sys_cfg_port),a
+		ret
+
 kiscan10:
 		ld (hl),d
 		dec hl
 		ld (hl),e
 		call tobin
+		in a,(sys_cfg_port)
+		or 1
+		out (sys_cfg_port),a
+
 		ret		
 		
 tobin:
@@ -65,148 +70,132 @@ tobin20:
 		djnz tobin10
 		ret
 
-ticks_per_sec	equ 10000
-
 tkscan:
-		ld a,@tkread
+		; get system elapsed time in milliseconds
+		ld a,@tkrdms
 		rst 0x28
-
-		; divide by 10,000 to get number of seconds
-		ld a,@d3210
-		rst 0x28
-		ld a,@d3210
-		rst 0x28
-		ld a,@d3210
-		rst 0x28
-		ld a,@d3210
-		rst 0x28
-
-		; get number of seconds into BCDE
-		ld c,e
-		ld b,d
-		ld e,l
-		ld d,h
-
-		; save current count
-		ld hl,this_tc
-		ld (hl),e
-		inc hl
-		ld (hl),d
-		inc hl
-		ld (hl),c
-		inc hl
-		ld (hl),b
-
-		; compute the difference
-		ld bc,this_tc
-		ld de,diff_tc
-		ld hl,last_tc
-		ld a,(bc)			; byte 0 of this
-		inc bc			
-		sub (hl)			; minus byte 0 of last
-		inc hl
-		ld (de),a			; store byte 0 of diff
-		inc de
-		ld a,(bc)			; byte 1 of this
-		inc bc
-		sbc (hl)			; minus byte 1 of last
-		inc hl
-		ld (de),a			; store byte 1 of diff
-		inc de
-		ld a,(bc)			; byte 2 of this
-		inc bc
-		sbc (hl)			; minus byte 2 of last
-		inc hl
-		ld (de),a			; store byte 2 of diff
-		inc de
-		ld a,(bc)			; byte 3 of this
-		inc bc
-		sbc (hl)			; minus byte 3 of last
-		inc hl
-		ld (de),a			; store byte 3 of diff
-		inc de
-
-		; store this count as last count
-		ld bc,this_tc
-		ld hl,last_tc
-		ld a,(bc)			; byte 0 of this
-		inc bc
-		ld (hl),a			; store as byte 0 of last
-		inc hl
-		ld a,(bc)			; byte 1 of this
-		inc bc
-		ld (hl),a			; store as byte 1 of last
-		inc hl
-		ld a,(bc)			; byte 2 of this
-		inc bc
-		ld (hl),a			; store as byte 2 of last
-		inc hl
-		ld a,(bc)			; byte 3 of this
-		inc bc
-		ld (hl),a			; store as byte 3 of last
-		inc hl
-
-		; is the difference at least one second
-		ld hl,diff_tc
-		ld a,(hl)
-		inc hl
-		or a
-		jr nz,tkscan10
 		
-		ld a,(hl)
-		inc hl
-		or a
-		jr nz,tkscan10		
+		; divide by 1000 to get seconds
+		ld bc,1000
+		ld a,@d32x16
+		rst 0x28
+		
+		; divide by 60 to get minutes (quotient) 
+		; and seconds (remainder)
+		ld c,60
+		ld a,@d32x8
+		rst 0x28
 
-		ld a,(hl)
-		inc hl
-		or a
-		jr nz,tkscan10		
+		; has the number of seconds changed?
+		ld c,a				; save seconds
+		ld a,(last_secs)		; load last
+		cp c				
+		ld a,c				; restore seconds
+		ret z				; go back if no change
 
-		ld a,(hl)
-		inc hl
-		or a
-		ret z
+		ld (last_secs),a		; saves seconds for next time
 
-tkscan10:		
+		; blank buffer and null terminate
+		ld b,16
+		ld ix,et_buffer
+tkscan_05:
+		ld (ix),' '
+		inc ix
+		djnz tkscan_05
+		ld (ix),0
+
+		; convert seconds to decimal and add delimiter
+		call tocunit
+		dec ix
+		ld (ix),':'	
+			
+		; divide by 60 to get hours (quotient) 
+		; and minutes (remainder)
+		ld c,60
+		ld a,@d32x8
+		rst 0x28
+
+		; convert minutes to decimal and add delimiter
+		call tocunit
+		dec ix
+		ld (ix),':'
+
+		; divide by 24 to get days (quotient)
+		; and hours (remainder)
+		ld c,24			
+		ld a,@d32x8
+		rst 0x28
+
+		; convert hours to decimal and add delimiter
+		call tocunit
+		dec ix
+		ld (ix),' '
+		dec ix
+		ld (ix),'d'
+		dec ix
+		ld (ix),'0'
+		jr tkscan_20
+
+tkscan_10:
+		ld a,@d16x8
+		ld c,10
+		rst 0x28
+		add a,'0'
+		dec ix
+		ld (ix),a		
+
+		; is the quotient still non-zero?
+		ld a,h
+		or l
+		jr nz,tkscan_10
+tkscan_20:
+		; position cursor and write new value
 		ld bc,0x0100
 		ld a,@dogoto
 		rst 0x28
-
-		ld hl,blanks
+		ld hl,et_buffer
 		ld a,@doputs
-		rst 0x28		
-
-		ld bc,0x0100
-		ld a,@dogoto
-		rst 0x28
-
-		ld hl,this_tc
-		ld (hl),c
-		inc hl
-		ld (hl),b
-		inc hl
-		ld (hl),e
-		inc hl
-		ld (hl),d
-		ld l,c
-		ld h,b
-
-		; display the current tick count
-		ld hl,this_tc
-		ld a,@dop10w
 		rst 0x28
 
 		ret
 
+tocunit:
+		push hl
+
+		; get pointer to digit pair to display
+		rlca			; times two for two digits
+		ld hl,chrono_lookup	; point to start of lookup table
+		add a,l			
+		ld l,a			; L = table entry LSB
+		adc a,h
+		sub l
+		ld h,a			; H = table entry MSB
+
+		inc hl			; second digit first
+		dec ix
+		ld a,(hl)
+		ld (ix),a
+		
+		dec hl			; now first digit
+		dec ix
+		ld a,(hl)
+		ld (ix),a
+
+		pop hl
+		ret
 
 blanks		dc 	' ',16
 		db	0
 
+chrono_lookup	db '000102030405060708091011121314'
+		db '151617181920212223242526272829'
+		db '303132333435363738394041424344'
+		db '454647484950515253545556575859'
+
+
 		dseg
 last_ki		ds 	2
-last_tc		ds 	4
-this_tc		ds 	4
-diff_tc		ds 	4
+last_secs	ds	1
+et_buffer	ds	17
 
 		end
