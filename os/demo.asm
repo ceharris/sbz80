@@ -7,49 +7,32 @@
 
 demo::
 		; initialize last keyboard scan
-		ld hl,last_ki
-		ld a,0xff
-		ld (hl),a
-		inc hl
-		ld (hl),a
-		inc hl
+		ld hl,0x0000
+		ld (last_ki),hl
 
 		; initialize last seconds count
 		xor a
 		ld (last_secs),a
 
 demo10:
+		call kiscan
 		call tkscan
 		jr demo10
 
 kiscan:
 		ld a,@kiread
 		rst 0x28
-		ld e,l
-		ld d,h
-		ld hl,last_ki
-		ld a,e
-		cp (hl)
+		ld de,last_ki
+		ld a,(de)
+		cp l
 		jr nz,kiscan10
-		ld a,d
-		inc hl
-		cp (hl)
-		jr nz,kiscan10
-
-		in a,(sys_cfg_port)
-		and ~1
-		out (sys_cfg_port),a
-		ret
-
+		inc de
+		ld a,(de)
+		cp h
+		ret z
 kiscan10:
-		ld (hl),d
-		dec hl
-		ld (hl),e
+		ld (last_ki),hl
 		call tobin
-		in a,(sys_cfg_port)
-		or 1
-		out (sys_cfg_port),a
-
 		ret		
 		
 tobin:
@@ -59,8 +42,8 @@ tobin:
 
 		ld b,16
 tobin10:
-		sla e
-		rl d
+		sla l
+		rl h
 		ld c,'0'
 		jr nc,tobin20
 		inc c
