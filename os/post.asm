@@ -16,7 +16,7 @@ mem_pattern	equ	0x55
 smem_size	equ	umem_start - smem_start
 
 	;--------------------------------------------------------------
-	; Power-on Self Tests 
+	; Power-on Self Tests
 	; This routine runs tests on memory and various other subsystems.
 	;
 		cseg
@@ -24,7 +24,7 @@ post::
 		; initialize system configuration register
 		; need this to ensure upper bank zero is selected
 		xor a
-		out (sys_cfg_port),a			
+		out (sys_cfg_port),a
 
 		; note: use of stack assumes memory is viable
 		ld sp,umem_start - buflen
@@ -102,7 +102,7 @@ post_mem50:
 
 		; post passed
 post_ok:
-		inc ix				; increment total count		
+		inc ix				; increment total count
 
 		; have we already had a failure?
 		push iy
@@ -110,7 +110,7 @@ post_ok:
 		ld a,l
 		or h
 		jp nz,post_counts		; just show the updated counts
-				
+
 		call dohome			; home cursor
 		ld hl,okmsg
 		call doputs			; display ok message
@@ -141,7 +141,7 @@ post_fail20:
 		ld hl,cormsg
 post_fail30:
 		ld de,umem_start - buflen
-		ld bc,buflen	
+		ld bc,buflen
 		ldir				; copy template to buffer
 
 		ld e,a				; save byte at failure address
@@ -152,10 +152,10 @@ post_fail30:
 		inc hl				; skip ':' delimiter
 		ld c,e				; get byte at failure address
 		call hex8			; convert to hex in buffer
-		
+
 		call dohome			; home cursor
-		ld hl,umem_start - buflen	
-		call doputs			; write buffer to display		
+		ld hl,umem_start - buflen
+		call doputs			; write buffer to display
 		inc ix				; increment test count
 		inc iy				; increment fail count
 
@@ -163,17 +163,17 @@ post_counts:
 		ld hl,cntmsg			; point to counts template
 		ld de,umem_start - buflen
 		ld bc,buflen
-		ldir				; copy template to buffer	
+		ldir				; copy template to buffer
 
 		ld hl,umem_start - buflen + totbuf
 		push ix				; transfer total count
 		pop bc
 		call hex16			; convert to hex in buffer
-		
+
 		; skip delimiting text
 		inc hl
 		inc hl
-		inc hl	
+		inc hl
 
 		push iy				; transfer fail count
 		pop bc
@@ -194,19 +194,19 @@ post_counts:
 		jp nz,post_again		; do next pass
 
 		in a,(sys_cfg_port)		; get bank bits
-		rlca				; convert to	
+		rlca				; convert to
 		rlca				;   bank number
 		inc a				; next bank
-		cp 3			
+		cp 3
 		jr nc,post_done			; no more banks
 		rrca				; convert to
 		rrca				;   selection bits
-		out (sys_cfg_port),a		
+		out (sys_cfg_port),a
 		ld ix,0				; zero pass count
 		jp post_again			; test next bank
 
 post_done:
-		xor a	
+		xor a
 		out (sys_cfg_port),a		; select bank zero
 
 		; zero out all writable memory
