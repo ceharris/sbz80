@@ -49,7 +49,7 @@
 		include pio_defs.asm
 
 
-pio_mask_a	equ 0x88		; pins 3 and 7 are inputs
+pio_mask_a	equ 0x08		; only pin 3 is an input
 pio_mask_b	equ 0			; all pins are outputs
 
 		cseg
