@@ -33,8 +33,8 @@ kiscan:
 kiscan10:
 		ld (last_ki),hl
 		call tobin
-		ret		
-		
+		ret
+
 tobin:
 		ld bc,0
 		ld a,@dogoto
@@ -57,13 +57,13 @@ tkscan:
 		; get system elapsed time in milliseconds
 		ld a,@tkrdms
 		rst 0x28
-		
+
 		; divide by 1000 to get seconds
 		ld bc,1000
 		ld a,@d32x16
 		rst 0x28
-		
-		; divide by 60 to get minutes (quotient) 
+
+		; divide by 60 to get minutes (quotient)
 		; and seconds (remainder)
 		ld c,60
 		ld a,@d32x8
@@ -72,7 +72,7 @@ tkscan:
 		; has the number of seconds changed?
 		ld c,a				; save seconds
 		ld a,(last_secs)		; load last
-		cp c				
+		cp c
 		ld a,c				; restore seconds
 		ret z				; go back if no change
 
@@ -90,9 +90,9 @@ tkscan_05:
 		; convert seconds to decimal and add delimiter
 		call tocunit
 		dec ix
-		ld (ix),':'	
-			
-		; divide by 60 to get hours (quotient) 
+		ld (ix),':'
+
+		; divide by 60 to get hours (quotient)
 		; and minutes (remainder)
 		ld c,60
 		ld a,@d32x8
@@ -105,7 +105,7 @@ tkscan_05:
 
 		; divide by 24 to get days (quotient)
 		; and hours (remainder)
-		ld c,24			
+		ld c,24
 		ld a,@d32x8
 		rst 0x28
 
@@ -117,21 +117,20 @@ tkscan_05:
 		ld (ix),'d'
 		dec ix
 		ld (ix),'0'
-		jr tkscan_20
-
+		inc ix
 tkscan_10:
 		ld a,@d16x8
 		ld c,10
 		rst 0x28
 		add a,'0'
 		dec ix
-		ld (ix),a		
+		ld (ix),a
 
 		; is the quotient still non-zero?
 		ld a,h
 		or l
 		jr nz,tkscan_10
-tkscan_20:
+
 		; position cursor and write new value
 		ld bc,0x0100
 		ld a,@dogoto
@@ -148,7 +147,7 @@ tocunit:
 		; get pointer to digit pair to display
 		rlca			; times two for two digits
 		ld hl,chrono_lookup	; point to start of lookup table
-		add a,l			
+		add a,l
 		ld l,a			; L = table entry LSB
 		adc a,h
 		sub l
@@ -158,7 +157,7 @@ tocunit:
 		dec ix
 		ld a,(hl)
 		ld (ix),a
-		
+
 		dec hl			; now first digit
 		dec ix
 		ld a,(hl)
@@ -167,14 +166,10 @@ tocunit:
 		pop hl
 		ret
 
-blanks		dc 	' ',16
-		db	0
-
 chrono_lookup	db '000102030405060708091011121314'
 		db '151617181920212223242526272829'
 		db '303132333435363738394041424344'
 		db '454647484950515253545556575859'
-
 
 		dseg
 last_ki		ds 	2
