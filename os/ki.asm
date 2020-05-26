@@ -15,8 +15,8 @@
 		extern setisr
 
 ki_port		equ 	pio_port_base + pio_port_a
-ki_ctc_ch	equ 	ctc_ch4
-ki_isr_vec	equ 	isr_ctc_ch4
+ki_ctc_ch	equ 	ctc_ch7
+ki_isr_vec	equ 	isr_ctc_ch7
 
 ki_ctc_cfg	equ 	ctc_ei|ctc_timer|ctc_pre256|ctc_tc|ctc_reset|ctc_ctrl
 
