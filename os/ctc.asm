@@ -5,31 +5,31 @@
 	; a total of 8 programmable timer/counter channels. Three of
 	; the channels are unassigned and available for programming as
 	; timers or for hardware interfacing.
-	;	
+	;
 	; Eight contiguous I/O ports are assigned to the mainboard CTC
-	; channels; CTC-A channels 0-3 and CTC-B channels 0-3 are 
+	; channels; CTC-A channels 0-3 and CTC-B channels 0-3 are
 	; assigned in order.
 	;
-	; The standard Z80 interrupt priority chain is implemented for 
-	; each of the CTC units. CTC-A is the highest priority device in 
+	; The standard Z80 interrupt priority chain is implemented for
+	; each of the CTC units. CTC-A is the highest priority device in
 	; the chain attached to the Z80 and CTC-B is at a lower priority
-	; The CTC prioritizes channel interrupt events in channel order, 
-	; therefore the interrupt priority of the channels corresponds 
-	; to the order in which the channels are assigned to I/O ports, 
+	; The CTC prioritizes channel interrupt events in channel order,
+	; therefore the interrupt priority of the channels corresponds
+	; to the order in which the channels are assigned to I/O ports,
 	; with CTC-A channel 0 having the highest priority and CTC-B channel
 	; 3 having the lowest priority.
-	; 
-	; Channel Asignments
-	; ------------------
+	;
+	; Channel Assignments
+	; -------------------
 	; CTC-A channel 0: timer tick
 	; CTC-A channel 1: (reserved for future SIO)
 	; CTC-A channel 2: (reserved for future SIO)
-	; CTC-A channel 3: delay service function
+	; CTC-A channel 3: (unassigned)
 	; CTC-B channel 0: (unassigned)
 	; CTC-B channel 1: (unassigned)
 	; CTC-B channel 2: (unassigned)
 	; CTC-B channel 3: keyboard scan and debounce
-	; 
+	;
 
 		include isr.asm
 		include ports.asm
@@ -41,7 +41,6 @@
 	; ctcini:
 	; Initializes the mainboard CTC units
 	;
-
 ctcini::
 		; set all channels as externally triggered counters,
 		; with per-channel interrupts disabled

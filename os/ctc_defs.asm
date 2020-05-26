@@ -12,7 +12,7 @@ ctc_tc		equ	0x4		; time constant
 ctc_reset	equ	0x2		; software reset
 ctc_ctrl	equ	0x1		; control word
 
-		; Definitions for zero bits 
+		; Definitions for zero bits
 		; (used just for code readability)
 ctc_di		equ	0 		; disable interrupts
 ctc_timer	equ 	0		; timer mode
@@ -25,11 +25,11 @@ ctc_notc	equ	0		; no time constant
 ctc_default	equ 	ctc_di|ctc_counter|ctc_pre16|ctc_falling|ctc_trigger|ctc_notc|ctc_reset|ctc_ctrl
 
 		; Port offsets for channels
-ctc_ch0		equ 	ctc_port_base + 0	
+ctc_ch0		equ 	ctc_port_base + 0	; assigned to tick counter
 ctc_ch1		equ	ctc_ch0 + 1
 ctc_ch2		equ	ctc_ch0 + 2
 ctc_ch3		equ	ctc_ch0 + 3
 ctc_ch4		equ	ctc_ch0 + 4
 ctc_ch5		equ	ctc_ch0 + 5
 ctc_ch6		equ	ctc_ch0 + 6
-ctc_ch7		equ	ctc_ch0 + 7
+ctc_ch7		equ	ctc_ch0 + 7		; assigned to keyboard debounce
