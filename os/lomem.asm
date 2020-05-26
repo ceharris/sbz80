@@ -140,6 +140,10 @@ _d16x8		dw d16x8
 _bnksel		dw bnksel
 @bnksel		equ (_bnksel - svc_table)/2
 
+		extern tkgets
+_tkgets		dw tkgets
+@tkgets		equ (_tkgets - svc_table)/2
+
 		extern tkread
 _tkread		dw tkread
 @tkread		equ (_tkread - svc_table)/2
