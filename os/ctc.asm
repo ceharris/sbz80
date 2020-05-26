@@ -30,6 +30,7 @@
 	; CTC-B channel 2: (unassigned)
 	; CTC-B channel 3: keyboard scan and debounce
 	;
+		name ctc
 
 		include isr.asm
 		include ports.asm
