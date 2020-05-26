@@ -100,7 +100,7 @@ svc_dispatch:
 
 	;--------------------------------------------------------------
 	; NMI restart vector
-	; 
+	;
 		org 0x66
 		retn                            ; nothing to do
 
@@ -181,7 +181,7 @@ _kiptr		dw kiptr
 @kiptr		equ (_kiptr - svc_table)/2
 
 		extern kiread
-_kiread		dw kiread	
+_kiread		dw kiread
 @kiread		equ (_kiread - svc_table)/2
 
 		extern hex16
@@ -195,6 +195,22 @@ _hex8		dw hex8
 		extern rpcpy
 _rpcpy		dw rpcpy
 @rpcpy		equ (_rpcpy - svc_table)/2
+
+		extern rtcset
+_rtcset		dw rtcset
+@rtcset		equ (_rtcset - svc_table)/2
+
+		extern rtcget
+_rtcget		dw rtcget
+@rtcget		equ (_rtcget - svc_table)/2
+
+		extern rtcpt
+_rtcpt		dw rtcpt
+@rtcpt		equ (_rtcpt - svc_table)/2
+
+		extern rtcalm
+_rtcalm		dw rtcalm
+@rtcalm		equ (_rtcalm - svc_table)/2
 
 		extern setisr
 _setisr		dw setisr

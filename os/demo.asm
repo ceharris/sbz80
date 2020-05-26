@@ -1,11 +1,30 @@
 		name demo
 
+		include isr.asm
 		include svc.asm
 		include ports.asm
+		include pio_defs.asm
+		include ctc_defs.asm
+		include rtc_defs.asm
 
 		cseg
 
+rtc_data	db '202005252170000',0
+
 demo::
+;		ld hl,rtc_data
+;		ld a,@rtcset
+;		rst 0x28
+
+		ld a,rtc_alm_m
+		ld b,a
+		ld c,a
+		ld d,a
+		ld e,0x10
+		ld hl,rtc_handler
+		ld a,@rtcalm
+		rst 0x28
+
 		; initialize last keyboard scan
 		ld hl,0x0000
 		ld (last_ki),hl
@@ -166,6 +185,62 @@ tocunit:
 		pop hl
 		ret
 
+shrtc:
+		ld hl,et_buffer
+		ld c,0
+		ld a,@rtcget
+		rst 0x28
+
+		ld bc,0x0100
+		ld a,@dogoto
+		rst 0x28
+
+		ld a,@doputs
+		rst 0x28
+
+		ld bc,0x0110
+		ld a,@dogoto
+		rst 0x28
+
+		ld bc,0x4000
+shrtc10:
+		dec bc
+		ld a,b
+		or c
+		jr nz,shrtc10
+
+		ret
+
+shrtcl:
+		ld hl,et_buffer
+		ld c,1
+		ld a,@rtcget
+		rst 0x28
+
+		ld bc,0x000
+		ld a,@dogoto
+		rst 0x28
+
+		ld a,@doputs
+		rst 0x28
+
+		ld bc,0x0100
+		ld a,@dogoto
+		rst 0x28
+
+		inc hl
+		ld a,@doputs
+		rst 0x28
+
+		ld bc,0x0110
+		ld a,@dogoto
+		rst 0x28
+
+		ret
+
+rtc_handler:
+		ret
+
 chrono_lookup	db '000102030405060708091011121314'
 		db '151617181920212223242526272829'
 		db '303132333435363738394041424344'
@@ -174,6 +249,6 @@ chrono_lookup	db '000102030405060708091011121314'
 		dseg
 last_ki		ds 	2
 last_secs	ds	1
-et_buffer	ds	17
+et_buffer	ds 	32
 
 		end

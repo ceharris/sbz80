@@ -9,6 +9,8 @@ vrst10::     	ds 	2		; RST 10 vector
 vrst18::     	ds 	2		; RST 18 vector
 vrst20::     	ds 	2		; RST 20 vector
 vrst38::     	ds 	2		; RST 38 vector
+rtcph::		ds	2		; RTC periodic timer handler
+rtcah::		ds	2		; RTC alarm handler
 tkcnt::		ds	4		; 32-bit tick counter
 kisamp::	ds	1		; index into keyboard input samples
 		ds	ki_samples*2	; 16-bit keyboard input samples

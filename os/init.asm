@@ -2,7 +2,8 @@
 
 		extern ctcini
 		extern pioini
-		extern tkinit	
+		extern rtcini
+		extern tkinit
 		extern kiinit
 		extern doinit
 		extern kiraw
@@ -33,10 +34,11 @@
 		cseg
 init::
 		; stack grows down from start of umem
-		ld sp,umem_start	
+		ld sp,umem_start
 
 		call ctcini
 		call pioini
+		call rtcini
 
 		call initcfg
 		call initvec
@@ -59,12 +61,12 @@ initcfg:
 		call kiraw
 		ld a,h				; get high order bits
 		rrca				; config bits
-		rrca				;   are in the 
+		rrca				;   are in the
 		rrca				;   uppermost
 		rrca				;   nibble
 		and 0xf				; just the config bits
 		ld (syscfg),a			; store them
-		
+
 		; determine clock period in microseconds
 		and 0x3				; just the clock speed bits
 		ld b,a
@@ -88,10 +90,10 @@ initcfg10:
 		ld (hl),e
 		inc hl
 		ld (hl),d
-		
+
 		; select default configuration (bank 0)
 		xor a
-		out (sys_cfg_port),a		
+		out (sys_cfg_port),a
 
 		ret
 

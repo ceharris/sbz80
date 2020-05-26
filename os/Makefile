@@ -19,6 +19,7 @@ MODULES=lomem.rel \
 	init.rel \
 	ctc.rel \
 	pio.rel \
+	rtc.rel \
 	rpeek.rel \
 	muldiv.rel \
 	bnksel.rel \
@@ -68,6 +69,8 @@ init.rel: init.asm memory.asm isr.asm ports.asm ctc_defs.asm
 ctc.rel: isr.asm ports.asm ctc_defs.asm
 
 pio.rel: ports.asm pio_defs.asm
+
+rtc.rel: ports.asm isr.asm pio_defs.asm rtc_defs.asm
 
 tk.rel: tk.asm isr.asm ports.asm ctc_defs.asm
 
