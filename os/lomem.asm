@@ -188,6 +188,10 @@ _kiptr		dw kiptr
 _kiread		dw kiread
 @kiread		equ (_kiread - svc_table)/2
 
+		extern kiget
+_kiget		dw kiget
+@kiget		equ (_kiget - svc_table)/2
+
 		extern hex16
 _hex16		dw hex16
 @hex16		equ (_hex16 - svc_table)/2
