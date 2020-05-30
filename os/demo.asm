@@ -12,30 +12,18 @@
 rtc_data	db '202005252170000',0
 
 demo::
-;		ld hl,rtc_data
-;		ld a,@rtcset
-;		rst 0x28
+		call kinput_init
+		call tkscan_init
+demo10:
+		call kinput
+		call tkscan
+		jr demo10
 
-;		ld a,rtc_alm_m
-;		ld b,a
-;		ld c,a
-;		ld d,a
-;		ld e,0x10
-;		ld hl,rtc_handler
-;		ld a,@rtcalm
-;		rst 0x28
-
+kiscan_init:
 		; initialize last keyboard scan
 		ld hl,0x0000
 		ld (last_ki),hl
-
-		; initialize et_last
-		xor a
-		ld (et_last+et_length-1),a
-demo10:
-		call kiscan
-		call tkscan
-		jr demo10
+		ret
 
 kiscan:
 		ld a,@kiread
@@ -69,6 +57,54 @@ tobin20:
 		ld a,@doputc
 		rst 0x28
 		djnz tobin10
+		ret
+
+kinput_init:
+		jr kclear
+
+kinput:
+		ld a,@kiget
+		rst 0x28
+		ret z
+
+		cp 4
+		jr z,kclear
+
+		ld hl,ksym_buf + 1
+		ld de,ksym_buf
+		ld bc,ksym_length - 1
+		ldir
+
+		ld (de),a
+		call kshow
+		ret
+
+kclear:
+		ld hl,ksym_buf
+		ld de,ksym_buf+1
+		ld bc,ksym_length-1
+		ld (hl),' '
+		ldir
+		inc hl
+		ld (hl),0
+		call kshow
+		ret
+
+kshow:
+		ld bc,0
+		ld a,@dogoto
+		rst 0x28
+
+		ld hl,ksym_buf
+		ld a,@doputs
+		rst 0x28
+		ret
+
+
+tkscan_init:
+		; initialize et_last
+		xor a
+		ld (et_last+et_length-1),a
 		ret
 
 tkscan:
@@ -108,6 +144,22 @@ tkscan95:
 		ld a,b
 		or c
 		jr nz,tkscan95
+
+		ret
+
+shrtc_init:
+;		ld hl,rtc_data
+;		ld a,@rtcset
+;		rst 0x28
+
+		ld a,rtc_alm_m
+		ld b,a
+		ld c,a
+		ld d,a
+		ld e,0x10
+		ld hl,rtc_handler
+		ld a,@rtcalm
+		rst 0x28
 
 		ret
 
@@ -169,6 +221,9 @@ rtc_handler:
 
 		dseg
 last_ki		ds 	2
+
+ksym_length	equ	16
+ksym_buf	ds	32
 
 et_length	equ	16
 
