@@ -47,7 +47,6 @@
 		include ports.asm
 		include ctc_defs.asm
 		include pio_defs.asm
-		include ki_sym.asm
 
 		extern syscfg
 		extern kiring
@@ -86,39 +85,18 @@ tc_tab		db	32		; 1 MHz
 		db	128		; 4 MHz
 		db	0		; 8 MHz
 
-		; keyboard symbol table for hexadecimal input
-kithex::	db ksym_4, ksym_9, ksym_3, ksym_8, ksym_2
-		db ksym_7, ksym_1, ksym_6, ksym_0, ksym_5
-		db ksym_enter, ksym_clear, ksym_nul, ksym_nul, ksym_C
-		db ksym_F, ksym_B, ksym_E, ksym_A, ksym_D
-		db ksym_nul, ksym_nul, ksym_nul, ksym_nul, ksym_nul
-		db ksym_nul, ksym_nul, ksym_nul, ksym_nul, ksym_nul
-		db ksym_nul, ksym_nul, ksym_nul, ksym_nul, ksym_nul
-		db ksym_nul, ksym_nul, ksym_nul, ksym_nul, ksym_nul
-
-		; keyboard symbol table for yes/no input
-kityn::		db ksym_enter, ksym_nul, ksym_N, ksym_Y, ksym_N
-		db ksym_Y, ksym_N, ksym_Y, ksym_N, ksym_Y
-		db ksym_nul, ksym_nul, ksym_nul, ksym_nul, ksym_nul
-		db ksym_nul, ksym_nul, ksym_nul, ksym_nul, ksym_nul
-		db ksym_nul, ksym_nul, ksym_nul, ksym_nul, ksym_nul
-		db ksym_nul, ksym_nul, ksym_nul, ksym_nul, ksym_nul
-		db ksym_nul, ksym_nul, ksym_nul, ksym_nul, ksym_nul
-		db ksym_nul, ksym_nul, ksym_nul, ksym_nul, ksym_nul
-
 	;---------------------------------------------------------------
 	; kiinit:
 	; Initialize system variables used for keyboard input support.
 	;
-
 kiinit::
 		; initialize input ring buffer
 		ld hl,kiring		; point to start of ring
 		ld (kirhd),hl		; set the head pointer
 		ld (kirtl),hl		; set the tail pointer
 
-		; initialize symbol table pointers
-		ld hl,kithex
+		; initialize symbol table pointer
+		ld hl,0
 		ld (kistab),hl
 
 		xor a
@@ -279,6 +257,12 @@ kidbnc_upper_keys:
 		; scan for input only if debounced keyboard state changed
 		or a
 		sbc hl,de
+		jr z,kidbnc_done
+
+		; scan for input only if a symbol table is specified
+		ld hl,(kistab)
+		ld a,h
+		or l
 		jr z,kidbnc_done
 
 		call kimod		; update modifier state
