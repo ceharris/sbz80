@@ -1,6 +1,45 @@
 	;--------------------------------------------------------------
 	; Keyboard input support
 	;
+	; The SBZ80 mainboard has a 12-button keyboard that can be
+	; used to provide input to programs. The keys are identified
+	; as K0 through K11 and are connected to the least significant
+	; twelve bits of a 16-bit parallel (broadside) load shift
+	; register. The clock, load, and serial output signals of
+	; shift register are connected to a few pins the A port of the
+	; mainboard PIO unit. This module provides the support needed
+	; to read key press and release events and to generate symbol
+	; inputs from them.
+	;
+	; As with any input device made from mechanical switches, the
+	; switch inputs must be debounced to eliminate spurious key
+	; events produced as the switch contacts are joined and
+	; separated. In this module, debounce is accomplished by
+	; using a timer channel to drive an interrupt service routine
+	; that scans the inputs and folds the new inputs into a simple
+	; array-based filter algorithm.  Using this approach all twelve
+	; inputs are debounced simultaneously with a period of 8.192
+	; milliseconds.
+	;
+	; The resulting debounced state is used derive a stream of
+	; input symbols using a table that translates the key into a
+	; corresponding symbol which may a printable character or
+	; a function identifier of some kind.
+	;
+	; Two of the keys are used interpreted as latching modifiers,
+	; such that 40 different input symbols can be produced using
+	; just 12 keys. When a modifier key is pressed and released,
+	; the state of a modifier bit is toggled in memory. The two
+	; modifier bits are then interpreted as a modulo-4 integer
+	; multiplier to index the input symbol table when interpreting
+	; a key press event from one of the non-modifer keys.
+	;
+	; Input symbols derived from the keyboard are placed into
+	; a small ring buffer for subsequent retrieval by a program.
+	; Service functions are also provided to set the symbol table
+	; to use in interpreting inputs and to flush the ring buffer.
+	;--------------------------------------------------------------
+
 		name ki
 
 		include memory.asm
@@ -522,15 +561,35 @@ kiread::
 	;
 kiget::
 		push hl
-		ld hl,(kirhd)
-		ld a,(kirtl)
+		ld hl,(kirhd)		; fetch head pointer
+		ld a,(kirtl)		; fetch tail pointer LSB (same MSB)
 		cp l
-		jr z,kiget_done
-		rinc a,l
-		ld (kirhd),a
-		ld a,(hl)
-		or a
+		jr z,kiget_done		; buffer empty if pointers equal
+		rinc a,l		; increment head pointer
+		ld (kirhd),a		; store head pointer
+		ld a,(hl)		; fetch the stored symbol
+		or a			; clear zero flag
 kiget_done:
+		pop hl
+		ret
+
+	;---------------------------------------------------------------
+	; SVC: kiflus
+	; Flushes the ring buffer used to hold symbol input such that
+	; any input waiting in the buffer is discarded.
+	;
+	; On return:
+	;	AF destroyed
+	;
+kiflus::
+		push hl
+
+		; Move head up to current tail.
+		; It's important that we change only the head pointer
+		; since interrupts might be enabled.
+
+		ld hl,(kirtl)		; fetch tail pointer
+		ld (kirhd),hl		; store as head pointer
 		pop hl
 		ret
 

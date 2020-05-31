@@ -192,6 +192,14 @@ _kiread		dw kiread
 _kiget		dw kiget
 @kiget		equ (_kiget - svc_table)/2
 
+		extern kiflus
+_kiflus		dw kiflus
+@kiflus		equ (_kiflus - svc_table)/2
+
+		extern kictab
+_kictab		dw kictab
+@kictab		equ (_kictab - svc_table)/2
+
 		extern hex16
 _hex16		dw hex16
 @hex16		equ (_hex16 - svc_table)/2
