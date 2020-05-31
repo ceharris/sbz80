@@ -218,17 +218,6 @@ post_done:
                 ld (hl),0
                 ldir
 
-		; delay to allow time to see final result
-		ld bc,0
-post_wait:
-		nop
-		nop
-		nop
-		nop
-		dec bc
-		ld a,b
-		or c
-		jr nz,post_wait
 		jp init
 
 num_passes	equ 2
