@@ -7,55 +7,26 @@
 		include ctc_defs.asm
 		include rtc_defs.asm
 
+		extern setrtc
+
 		cseg
 
 
 ksym_nul	equ	0
 ksym_enter	equ	1
-ksym_clear	equ	4
-
-ksym_0		equ 	'0'
-ksym_1		equ	'1'
-ksym_2		equ	'2'
-ksym_3		equ	'3'
-ksym_4		equ	'4'
-ksym_5		equ	'5'
-ksym_6		equ	'6'
-ksym_7		equ	'7'
-ksym_8		equ	'8'
-ksym_9		equ	'9'
-ksym_A		equ	'A'
-ksym_B		equ	'B'
-ksym_C		equ	'C'
-ksym_D		equ	'D'
-ksym_E		equ	'E'
-ksym_F		equ	'F'
-
+ksym_clear	equ	2
 ksym_N		equ	'N'
-ksym_Y		equ	'Y'
-
-		; keyboard symbol table for hexadecimal input
-ktab_hex:	db ksym_4, ksym_9, ksym_3, ksym_8, ksym_2
-		db ksym_7, ksym_1, ksym_6, ksym_0, ksym_5
-		db ksym_enter, ksym_clear, ksym_nul, ksym_nul, ksym_C
-		db ksym_F, ksym_B, ksym_E, ksym_A, ksym_D
-		db ksym_nul, ksym_nul, ksym_nul, ksym_nul, ksym_nul
-		db ksym_nul, ksym_nul, ksym_nul, ksym_nul, ksym_nul
-		db ksym_nul, ksym_nul, ksym_nul, ksym_nul, ksym_nul
-		db ksym_nul, ksym_nul, ksym_nul, ksym_nul, ksym_nul
+ksym_Y		equ 	'Y'
 
 		; keyboard symbol table for yes/no input
 ktab_yn:	db ksym_enter, ksym_nul, ksym_N, ksym_Y, ksym_N
 		db ksym_Y, ksym_N, ksym_Y, ksym_N, ksym_Y
+		db ksym_enter, ksym_nul, ksym_nul, ksym_nul, ksym_nul
 		db ksym_nul, ksym_nul, ksym_nul, ksym_nul, ksym_nul
 		db ksym_nul, ksym_nul, ksym_nul, ksym_nul, ksym_nul
 		db ksym_nul, ksym_nul, ksym_nul, ksym_nul, ksym_nul
 		db ksym_nul, ksym_nul, ksym_nul, ksym_nul, ksym_nul
 		db ksym_nul, ksym_nul, ksym_nul, ksym_nul, ksym_nul
-		db ksym_nul, ksym_nul, ksym_nul, ksym_nul, ksym_nul
-
-
-rtc_data	db '202005252170000',0
 
 demo::
 		call kiscan_init
@@ -63,17 +34,15 @@ demo::
 		call shrtc_init
 
 		call demo_choice
-		cp ksym_Y
-		jr z,demo20
+		cp ksym_N
+		jr z,demo10
+		call setrtc
 
+		ld a,@doclr
+		rst 0x28
 demo10:
-		call kiscan
-		call tkscan
-		jr demo10
-
-demo20:
 		call shrtcl
-		jr demo20
+		jr demo10
 
 kiscan_init:
 		; initialize last keyboard scan
@@ -172,7 +141,7 @@ shrtc_init:
 shrtcl:
 		ld hl,rtc_now
 		ld c,1
-		ld a,@rtcget
+		ld a,@rtcgta
 		rst 0x28
 
 		ld hl,rtc_now+rtc_length-1
@@ -219,7 +188,7 @@ rtc_handler:
 
 demo_choice:
 		ld hl,ktab_yn
-		ld a,@kictab
+		ld a,@kistab
 		rst 0x28
 
 		ld bc,0
@@ -275,7 +244,7 @@ demo_choice_commit:
 		ret
 
 
-prompt		db 'Show RTC?',0
+prompt		db 'Set RTC?',0
 
 		dseg
 choice		ds	1

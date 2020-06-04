@@ -184,8 +184,9 @@ rtcalm::
 		ret
 
 	;---------------------------------------------------------------
-	; SVC: rtcset
-	; Sets the current date and time.
+	; SVC: rtcsta
+	; Sets the current date and time using an ASCII-coded ISO8601
+	; representation.
 	;
 	; On entry:
 	;	HL = pointer to buffer containing ISO8601 date and time
@@ -195,7 +196,7 @@ rtcalm::
 	;	AF destroyed
 	;	all other registers preserved
 	;
-rtcset::
+rtcsta::
 		push bc
 		in a,(rtc_port_ctl)
 		set rtc_uti,a
@@ -221,14 +222,14 @@ rtcset::
 		; day of week can be used in place of usual separator
 		ld a,(hl)
 		cp iso_separator
-		jr z,rtcset10			; no day of week specified
+		jr z,rtcsta_no_weekday		; no day of week specified
 
 		dec hl				; need two digits
 		call rtc_a2b
 		and 0xf				; discard first digit
 		out (rtc_port_dow),a
 
-rtcset10:
+rtcsta_no_weekday:
 		; hour
 		call rtc_a2b
 		out (rtc_port_hour),a
@@ -250,8 +251,79 @@ rtcset10:
 		ret
 
 	;---------------------------------------------------------------
-	; SVC: rtcget
-	; Gets the current date and time as strings.
+	; SVC: rtcstb
+	; Sets the current date and time using the RTC's binary coded
+	; decimal representation.
+	;
+	; On entry:
+	;	HL = pointer to buffer
+	;	(HL + 0) = seconds (0..59)
+	;	(HL + 1) = minutes (0..59)
+	;	(HL + 2) = hours (0..23, 81..92)
+	;	(HL + 3) = day of month (1..31)
+	;	(HL + 4) = day of week (1..7)
+	;	(HL + 5) = month (1..12)
+	;	(HL + 6) = year (0..99)
+	;
+	; On return:
+	;	HL points at next byte past end of buffer
+	;	AF destroyed
+	;	all other registers preserved
+	;
+
+rtcstb::
+		; set RTC UTI bit and stop the clock
+		in a,(rtc_port_ctl)
+		set rtc_uti,a
+		res rtc_run,a
+		out (rtc_port_ctl),a
+
+		; set second
+		ld a,(hl)
+		inc hl
+		out (rtc_port_sec),a
+
+		; set minute
+		ld a,(hl)
+		inc hl
+		out (rtc_port_min),a
+
+		; set hour
+		ld a,(hl)
+		inc hl
+		out (rtc_port_hour),a
+
+		; set day-of-month
+		ld a,(hl)
+		inc hl
+		out (rtc_port_dom),a
+
+		; set day-of-week
+		ld a,(hl)
+		inc hl
+		out (rtc_port_dow),a
+
+		; set month
+		ld a,(hl)
+		inc hl
+		out (rtc_port_month),a
+
+		; set year
+		ld a,(hl)
+		inc hl
+		out (rtc_port_year),a
+
+		; reset RTC UTI bit and start the clock
+		in a,(rtc_port_ctl)
+		res rtc_uti,a
+		set rtc_run,a
+		out (rtc_port_ctl),a
+
+		ret
+
+	;---------------------------------------------------------------
+	; SVC: rtcgta
+	; Gets the current date and time as ASCII strings.
 	;
 	; On entry:
 	;	C = format (0=ISO8601, 1=Long Date and Time)
@@ -263,7 +335,7 @@ rtcset10:
 	;	no other registers changed
 	;
 
-rtcget::
+rtcgta::
 		push hl
 
 		; set UTI bit
@@ -274,7 +346,7 @@ rtcget::
 		; which output type
 		ld a,c
 		or a
-		jr nz,rtcget_long		; go if long format requested
+		jr nz,rtcgta_long		; go if long format requested
 
 		;-------------------------------
 		; ISO-8601 format
@@ -327,7 +399,7 @@ rtcget::
 		;-------------------------------
 		; Long US locale format
 		;-------------------------------
-rtcget_long:
+rtcgta_long:
 		push de
 
 		; set UTI bit
@@ -338,7 +410,7 @@ rtcget_long:
 		; is the day of the week specified?
 		in a,(rtc_port_dow)		; fetch day-of week
 		or a
-		jr z,rtcget_long20
+		jr z,rtcgta_long20
 
 		; day of week abbreviation
 		ld de,dowtab
@@ -346,7 +418,7 @@ rtcget_long:
 		ld (hl),' '			; add a space
 		inc hl
 
-rtcget_long20:
+rtcgta_long20:
 		; month abbreviation
 		in a,(rtc_port_month)		; fetch month
 		ld de,montab
@@ -398,6 +470,72 @@ rtcget_long20:
 
 		pop de
 		pop hl
+
+		ret
+
+	;---------------------------------------------------------------
+	; SVC: rtcgtb
+	; Gets the current date and time in the RTC's native
+	; binary-coded decimal format.
+	;
+	; On entry:
+	;	HL = pointer to seven byte buffer to receive date/time
+	;
+	; On return:
+	;	HL = HL + 7
+	; 	(HL-7) = second
+	;	(HL-6) = minute
+	; 	(HL-5) = hour
+	;	(HL-4) = day-of-month
+	;	(HL-3) = day-of-week
+	;	(HL-2) = month
+	;	(HL-1) = year
+	;
+rtcgtb::
+		; set UTI bit
+		in a,(rtc_port_ctl)
+		set rtc_uti,a
+		out (rtc_port_ctl),a
+
+		; get second
+		in a,(rtc_port_sec)
+		ld (hl),a
+		inc hl
+
+		; get minute
+		in a,(rtc_port_min)
+		ld (hl),a
+		inc hl
+
+		; get hour
+		in a,(rtc_port_hour)
+		ld (hl),a
+		inc hl
+
+		; get day-of-month
+		in a,(rtc_port_dom)
+		ld (hl),a
+		inc hl
+
+		; get day-of-week
+		in a,(rtc_port_dow)
+		ld (hl),a
+		inc hl
+
+		; get month
+		in a,(rtc_port_month)
+		ld (hl),a
+		inc hl
+
+		; get year
+		in a,(rtc_port_year)
+		ld (hl),a
+		inc hl
+
+		; clear UTI bit
+		in a,(rtc_port_ctl)
+		res rtc_uti,a
+		out (rtc_port_ctl),a
 
 		ret
 

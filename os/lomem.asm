@@ -196,9 +196,13 @@ _kiget		dw kiget
 _kiflus		dw kiflus
 @kiflus		equ (_kiflus - svc_table)/2
 
-		extern kictab
-_kictab		dw kictab
-@kictab		equ (_kictab - svc_table)/2
+		extern kistab
+_kistab		dw kistab
+@kistab		equ (_kistab - svc_table)/2
+
+		extern kigtab
+_kigtab		dw kigtab
+@kigtab		equ (_kigtab - svc_table)/2
 
 		extern hex16
 _hex16		dw hex16
@@ -212,13 +216,21 @@ _hex8		dw hex8
 _rpcpy		dw rpcpy
 @rpcpy		equ (_rpcpy - svc_table)/2
 
-		extern rtcset
-_rtcset		dw rtcset
-@rtcset		equ (_rtcset - svc_table)/2
+		extern rtcsta
+_rtcsta		dw rtcsta
+@rtcsta		equ (_rtcsta - svc_table)/2
 
-		extern rtcget
-_rtcget		dw rtcget
-@rtcget		equ (_rtcget - svc_table)/2
+		extern rtcstb
+_rtcstb		dw rtcstb
+@rtcstb		equ (_rtcstb - svc_table)/2
+
+		extern rtcgta
+_rtcgta		dw rtcgta
+@rtcgta		equ (_rtcgta - svc_table)/2
+
+		extern rtcgtb
+_rtcgtb		dw rtcgtb
+@rtcgtb		equ (_rtcgtb - svc_table)/2
 
 		extern rtcpt
 _rtcpt		dw rtcpt

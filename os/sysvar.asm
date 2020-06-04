@@ -13,7 +13,7 @@ kiring::	ds	ki_ring_size	; ring buffer (must be size aligned)
 kirhd::		ds	2		; ring head pointer
 kirtl::		ds	2		; ring tail pointer
 kiflag::	ds	1		; keyboard input flags
-kistab::	ds	2		; pointer to keyboard symbol table
+kitab::		ds	2		; pointer to keyboard symbol table
 kisamp::	ds	1		; index into keyboard input samples
 		ds	ki_samples*2	; 16-bit keyboard input samples
 kistat::	ds	2		; debounced keyboard input

@@ -30,6 +30,7 @@ MODULES=lomem.rel \
         hex.rel \
 	setisr.rel \
 	setvec.rel \
+	setrtc.rel \
 	strcpy.rel \
 	sysvar.rel \
 	demo.rel
@@ -77,6 +78,8 @@ tk.rel: tk.asm isr.asm ports.asm ctc_defs.asm
 do.rel: do.asm ports.asm pio_defs.asm
 
 ki.rel: ki.asm memory.asm isr.asm ports.asm ctc_defs.asm pio_defs.asm
+
+setrtc.rel: svc.asm
 
 svc.asm: lomem.lst
 	grep "^@" $< | sed -E 's/ *= *([0-9a-fA-F]*)/		equ 0x\1/' >$@

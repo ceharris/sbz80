@@ -53,7 +53,7 @@
 		extern kirhd
 		extern kirtl
 		extern kiflag
-		extern kistab
+		extern kitab
 		extern kisamp
 		extern kistat
 		extern kiprev
@@ -97,7 +97,7 @@ kiinit::
 
 		; initialize symbol table pointer
 		ld hl,0
-		ld (kistab),hl
+		ld (kitab),hl
 
 		xor a
 		ld (kiflag),a		; zero the flags
@@ -260,7 +260,7 @@ kidbnc_upper_keys:
 		jr z,kidbnc_done
 
 		; scan for input only if a symbol table is specified
-		ld hl,(kistab)
+		ld hl,(kitab)
 		ld a,h
 		or l
 		jr z,kidbnc_done
@@ -449,7 +449,7 @@ kisym_check_mod:
 		ld b,a			; will use them as a counter
 		or a			; set Z if no modifier bits set
 
-		ld hl,(kistab)		; fetch symbol table pointer
+		ld hl,(kitab)		; fetch symbol table pointer
 		jr z,kisym_no_mod	; go if no modifiers
 
 		; compute table row pointer in HL
@@ -578,8 +578,8 @@ kiflus::
 		ret
 
 	;---------------------------------------------------------------
-	; SVC: kictab
-	; Changes the keyboard symbol table.
+	; SVC: kistab
+	; Sets the keyboard symbol table.
 	;
 	; Subsequent input symbols scanned from the keyboard will use
 	; the specified symbol table. Inputs already scanned and placed
@@ -589,10 +589,26 @@ kiflus::
 	;	HL = pointer to 40-byte symbol table
 	;
 	; On return:
-	;	all registers preserved
+	;	HL = previous keyboard symbol table pointer
 	;
-kictab::
-		ld (kistab),hl
+kistab::
+		push de
+		ld de,(kitab)
+		ld (kitab),hl
+		ex de,hl
+		pop de
 		ret
+
+	;---------------------------------------------------------------
+	; SVC: kigtab
+	; Gets the keyboard symbol table.
+	;
+	; On return:
+	;	HL = keyboard symbol table pointer
+	;
+kigtab::
+		ld (kitab),hl
+		ret
+
 
 		end
