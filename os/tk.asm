@@ -1,323 +1,247 @@
+        ;---------------------------------------------------------------
+        ; Tick Counter
+        ;
+        ; The tick counter provides a measure of elapsed time that is
+        ; based on a periodic interrupts from ctc0 channel 3. The choice
+        ; of channel 3 is based on the fact that due to package
+        ; constraints of the CTC component, channel 3 has no zero count
+        ; output (ZC/TC pin) that could be used for timing another
+        ; hardware device.
+        ;
+        ; Based on a system clock of 3.6864 MHz, ctc0 channel 3 can be
+        ; configured to use the timer mode with the prescaler set to
+        ; 256 and the time constant set to 144 to arrive at a timer
+        ; frequency of 100 Hz.
+        ;
+        ;       period  = TC * pre_scaler / clock rate
+        ;               = 144 * 256 / 3.6864 MHz
+        ;               = 10,000 microseconds
+        ;               = 10 milliseconds
+        ;       frequency = 1 / period = 1 / 0.01 seconds = 100 Hz
+        ;
+        ; This choice of time constant isn't ideal, however, because it 
+        ; doesn't allow the same firmware to be used with a 7.3728 MHz (2x) 
+        ; clock while requiring only a configuration change via a switch.
+        ; If we double the time constant, the result will not fit in the
+        ; 8-bit register of the CTC. We therefore instead choose 72 as
+        ; the time constant with a 3.6864 MHz clock, resulting in a timer
+        ; frequency of 200 Hz. When the clock speed is doubled, we
+        ; also double the time constant to 144, to arrive at the same 
+        ; timer frequency.
+        ;
+        ; We divide the timer frequency by 2 using a flag that
+        ; is complemented at each timer interrupt, incrementing the 
+        ; 32-bit tkcnt variable in system memory  each time the flag
+        ; is set to zero (at every other interrupt). This allows the 
+        ; tick counter to reflect the desired 100 Hz tick frequency.
+        ;---------------------------------------------------------------
 
-		name tk
-		extern setisr
-		extern d32x16
-		extern d32x8
-		extern d16x8
+                .name tk
 
-		extern tkcnt
-		extern tkprd
-		extern syscfg
+                .extern d32x8
 
-		include ports.asm
-		include isr.asm
-		include ctc_defs.asm
+                .include memory.asm
+                .include ports.asm
+                .include isr.asm
+                .include ctc_defs.asm
 
-tk_ctc_ch	equ ctc_ch0
-tk_ctc_cfg  	equ ctc_ei|ctc_timer|ctc_pre16|ctc_tc|ctc_reset|ctc_ctrl
+tk_ctc_ctrl     .equ ctc_ei+ctc_timer+ctc_pre256+ctc_falling+ctc_tc+ctc_ctrl
 
-clk_speed_mask	equ 0x3
+tk_ctc_tc       .equ 72                ; time constant (pre-scale=256)
+tk_ctc_ch	.equ ctc0_ch1
+tk_ctc_isr	.equ isr_ctc0_ch1
 
-		cseg
+tk_5ms_flag     .equ $1
 
-		; time constants for configurable clock speeds
-tctab		db	125			; 1 MHz clock
-		db	250			; 2 MHz	clock
-		db	250			; 4 MHz	clock
-		db	250			; 8 MHz clock
+                .cseg
 
-		; tick periods (in units of 500 usec) for configurable
-		; clock speeds
-tktab 		db	4			; 1 MHz clock
-		db	4			; 2 MHz clock
-		db	2			; 4 MHz clock
-		db	1			; 8 MHz clock
-
-	;---------------------------------------------------------------
-	; tkinit:
-	; Initializes the tick counter. The counter represents the
-	; number of 500 usec units that have elapsed since the timer was
-	; started. The counter will wrap after 24d 20:31:23.648.
-	;
+        ;---------------------------------------------------------------
+        ; tkinit:
+        ; Initializes the tick counter and sets up ctc0 channel 3.
+        ;
 tkinit::
-		; set the 32-bit counter to zero
+                ; zero out the flag and the counter
                 xor a
+                ld (tkflag),a
                 ld hl,tkcnt
+                ld b,4
+tkinit_10:
                 ld (hl),a
                 inc hl
-                ld (hl),a
+                djnz tkinit_10
+
+                ; Set interrupt vector
+                ld hl,isrtab+tk_ctc_isr
+                ld (hl),low(tkisr)
                 inc hl
-                ld (hl),a
-                inc hl
-                ld (hl),a
+                ld (hl),high(tkisr)
 
-		; put the ISR address into the mode 2 interrupt vector table
-		ld hl,tkinc			; address of the ISR
-		ld c,isr_ctc_ch0		; interupt vector number
-		call setisr			; set vector in table
+                ld c,tk_ctc_tc          ; time constant for "normal" clock
+                ld a,(gpin)             ; get config switch positions        
+                rla                     ; put "turbo" switch into carry
+                jr c,tkinit_20          ; "normal" when switch is set to 1
+                rl c                    ; double time constant for "turbo"
+tkinit_20:
+                ; configure CTC channel
+                ld a,tk_ctc_ctrl
+                out (tk_ctc_ch),a       ; output control word
+                ld a,c
+                out (tk_ctc_ch),a       ; output time constant
 
-		; set control word for our CTC channel
-		ld a,tk_ctc_cfg
-                out (tk_ctc_ch),a
+                ret
 
-		; point HL to time constant table entry
-		ld a,(syscfg)			; get system config bits
-		and clk_speed_mask		; just the clock speed bits
-		ld hl,tctab			; point to first table entry
-		add a,l				; add clock speed bits
-		ld l,a				; save LSB
-		adc a,h				; roll the carry into MSB
-		sub l				; remove LSB bias
-		ld h,a				; HL -> table entry
-
-		; set TC on our channel
-		ld a,(hl)
-		out (tk_ctc_ch),a
-
-		; point HL to tick period table entry
-		ld a,(syscfg)			; get system config bits
-		and clk_speed_mask		; just the clock speed bits
-		ld hl,tktab			; point to start of table
-		add a,l				; add clock speed bits
-		ld l,a				; save LSB
-		adc a,h				; roll the carry into MSB
-		sub l				; remove LSB bias
-		ld h,a				; HL -> table entry
-		ld a,(hl)			; retrieve tick period
-		ld (tkprd),a			;     and store it
-
-		ret
-
-	;---------------------------------------------------------------
-	; tkinc:
-	; Interrupt service routine for the CTC channel used for the
-	; timer tick.
-	;
-tkinc::
+        ;---------------------------------------------------------------
+        ; tkisr:
+        ; Tick count interrupt service routine.
+        ;
+        ; This ISR increments the 32-bit `tkcnt` variable defined in
+        ; memory.asm each time that ctc0 channel 3 interrupts the CPU.
+        ;
+tkisr::
+                ei
                 push af
                 push hl
 
-		ld a,(tkprd)			; get the tick period
-                ld hl,tkcnt                     ; point to byte 0
-                add a,(hl)                      ; add period to LSB
-		ld (hl),a			; store LSB
-                jr nc,tkinc10                   ; go if LSB didn't wrap
+                ; use a 1 flag to divide timer frequency by 2
+                ld a,(tkflag)
+                xor tk_5ms_flag
+                ld (tkflag),a
+                ; skip counter update at every other interrupt
+                and tk_5ms_flag
+                jr nz,tkisr_10             
 
-		; propagate carry through upper bytes
-                inc hl                          ; point to byte 1
+                ld hl,tkcnt                     ; HL -> 32-bit counter
+
+                inc (hl)                        ; increment 1st byte
+                jr nz,tkisr_10                  ; go if no ripple
+
+                inc hl                          ; ripple into 2nd byte
                 inc (hl)                        ; increment it
-                jr nz,tkinc10                   ; go if didn't wrap
-                inc hl                          ; point to byte 2
+                jr nz,tkisr_10                  ; go if no ripple
+
+                inc hl                          ; ripple into 3rd byte
                 inc (hl)                        ; increment it
-                jr nz,tkinc10                   ; go if didn't wrap
-                inc hl                          ; point to byte 3
+                jr nz,tkisr_10                  ; go if no ripple
+
+                inc hl                          ; ripple into 4th byte
                 inc (hl)                        ; increment it
-tkinc10:
+tkisr_10:
                 pop hl
                 pop af
-		ei
                 reti
 
-	;---------------------------------------------------------------
-	; SVC: tkread
-	; Read the current value of the tick counter. The value represents
-	; the number of ticks elapsed time the timer was started. Each
-	; tick is 500 usec.
-	;
-	; On return:
-	; 	tick counter returned as a 32-bit value in DEHL
-	;
-tkread::
-		push bc
-		ld hl,tkcnt+3
-		di
-		ld d,(hl)
-		dec hl
-		ld e,(hl)
-		dec hl
-		ld b,(hl)
-		dec hl
-		ld c,(hl)
-		ei
-		ld l,c
-		ld h,b
-		pop bc
-		ret
+        ;---------------------------------------------------------------
+        ; tkrd16:
+        ; Reads the least significant 16 bits of the tick counter. This
+        ; function is useful for relatively short interval measurement.
+        ;
+        ; On return:
+        ;       HL = least significant 16 bits of the tick counter
+        ;
+tkrd16::
+                push de
+                ld hl,tkcnt
+                di
+                ld e,(hl)
+                inc hl
+                ld d,(hl)
+                ei
+                ex de,hl
+                pop de
+                ret
 
-	;---------------------------------------------------------------
-	; SVC: tkrdms
-	; Reads the current value of the tick counter and converts to
-	; milliseconds.
-	;
-	; On return:
-	; 	elapsed milliseconds returned as a 32-bit value in DEHL
-	;	C flag contains the previous least significant bit which
-	;	could be used to round the number of milliseconds if
-	;	desired.
-	;
-tkrdms::
-		call tkread
-		srl d
-		rr e
-		rr h
-		rr l
-		ret
+        ;---------------------------------------------------------------
+        ; tkrd32:
+        ; Reads the 32-bit tick counter.
+        ;
+        ; On return:
+        ;       DEHL = 32-bit tick counter
+        ;
+tkrd32::
+                push bc
+                ld hl,tkcnt
+                di
+                ld c,(hl)
+                inc hl
+                ld b,(hl)
+                inc hl
+                ld e,(hl)
+                inc hl
+                ld d,(hl)
+                ei
+                ld l,c
+                ld h,b
+                pop bc
+                ret
 
-	;---------------------------------------------------------------
-	; SVC: tkgets
-	; Gets the system elapsed time as a string in the format.
-	; '(N*)Nd HH:MM:SS'
-	;
-	; On entry:
-	;	HL = pointer to buffer to receive the string
-	;
-	; On return:
-	;	all registers except AF preserved
-	;
-tkgets::
-		push bc
-		push de
-		push hl
-		push ix
+        ;---------------------------------------------------------------
+        ; tkrdut:
+        ; Converts the tick count into a system uptime in a caller-
+        ; provided buffer.
+        ;
+        ; On entry:
+        ;       IY = caller's 6-byte buffer for the result
+        ;
+        ; On return:
+        ;       AF is destroyed
+        ;
+        ;       Caller's buffer is updated with system uptime as follows:
+        ;       buf+0 = days (2 bytes, unsigned integer)
+        ;       buf+2 = hours (1 byte, 0..23)
+        ;       buf+3 = minutes (1 byte, 0..59)
+        ;       buf+4 = seconds (1 byte, 0..59)
+        ;       buf+5 = hundreds (1 byte, 0..99)
+        ;
+tkrdut::
+                push bc
+                push de
+                push hl
 
-		; blank buffer and null terminate
-		ld b,16
-tkgets10:
-		ld (hl),' '
-		inc hl
-		djnz tkgets10
-		ld (hl),0
+                ; load DEHL with the 32-bit counter
+                ld hl,tkcnt
+                di
+                ld c,(hl)
+                inc hl
+                ld b,(hl)
+                inc hl
+                ld e,(hl)
+                inc hl
+                ld d,(hl)
+                ei
+                ld l,c
+                ld h,b
 
-		; put HL into IX
-		ld a,l
-		ld ixl,a
-		ld a,h
-		ld ixh,a
+                ; divide hundreths by 100 to get seconds with
+                ; hundredths as the remainder
+                ld c,100
+                call d32x8              ; DEHL is now seconds
+                ld (iy+5),a             ; store hundredths
 
-		; get tick counter into DEHL (units are 500 microseconds)
-		ld hl,tkcnt+3
-		di
-		ld d,(hl)
-		dec hl
-		ld e,(hl)
-		dec hl
-		ld b,(hl)
-		dec hl
-		ld c,(hl)
-		ei
-		ld l,c
-		ld h,b
-
-		; shift DEHL right to get milliseconds
-		srl d
-		rr e
-		rr h
-		rr l
-
-		; divide DEHL by 1000 to get seconds
-		ld bc,1000
-		call d32x16
-
-                ; divide DEHL by 60 to get minutes (quotient)
-                ; and seconds (remainder)
+                ; divide seconds by 60 to get minutes with
+                ; seconds as the remainder
                 ld c,60
-		call d32x8
+                call d32x8              ; DEHL is now minutes
+                ld (iy+4),a             ; store seconds
 
-		; convert seconds to decimal and add delimiter
-		call tocunit
-		dec ix
-		ld (ix),':'
+                ; divide minutes by 60 to get hours with
+                ; minutes as the remainder
+                call d32x8              ; DEHL is now hours
+                ld (iy+3),a             ; store minutes
 
-		; divide DEHL by 60 to get hours (quotient)
-		; and minutes (remainder)
-		ld c,60
-		call d32x8
+                ; divide hours by 24 to get days with
+                ; hours as the remainder
+                ld c,24
+                call d32x8              ; HL is now days
+                ld (iy+2),a             ; store hours
 
-		; convert minutes to decimal and add delimiter
-		call tocunit
-		dec ix
-		ld (ix),':'
+                ; store days
+                ld (iy+0),l
+                ld (iy+1),h
 
-		; divide DEHL by 24 to get days (quotient)
-		; and hours (remainder)
-		ld c,24
-		call d32x8
+                pop hl
+                pop de
+                pop bc
+                ret
 
-		; convert hours to decimal
-		call tocunit
 
-		; insert space
-		dec ix
-		ld (ix),' '
-
-		; insert units indicator
-		dec ix
-		ld (ix),'d'
-
-tkgets20:
-		; divide HL by 10 to get next digit of elapsed days
-		ld c,10
-		call d16x8
-
-		; convert digit to decimal and prepend to buffer
-		add a,'0'
-		dec ix
-		ld (ix),a
-
-		; is the quotient still non-zero?
-		ld a,h
-		or l
-		jr nz,tkgets20
-
-		pop ix
-		pop hl
-		pop de
-		pop bc
-		ret
-
-	;---------------------------------------------------------------
-	; tocunit:
-	; Converts a binary value to a decimal chrono unit using a table
-	; lookup. Binary values in the range 0..59 can be converted.
-	;
-	; On entry:
-	;	A = the value to be converted
-	;	IX = successor to the buffer position at which the
-	;	digit pair is to be inserted.
-	;
-	; On return:
-	;	IX = buffer position of leading digit of chrono unit
-	;	AF destroyed
-	;	all other registers preserved
-	;
-tocunit:
-		push hl
-
-		; get pointer to digit pair to display
-		rlca			; times two for two digits
-		ld hl,chronotab		; point to start of lookup table
-		add a,l
-		ld l,a			; L = table entry LSB
-		adc a,h
-		sub l
-		ld h,a			; H = table entry MSB
-
-		inc hl			; second digit first
-		dec ix
-		ld a,(hl)
-		ld (ix),a
-
-		dec hl			; now first digit
-		dec ix
-		ld a,(hl)
-		ld (ix),a
-
-		pop hl
-		ret
-
-chronotab	db '000102030405060708091011121314'
-		db '151617181920212223242526272829'
-		db '303132333435363738394041424344'
-		db '454647484950515253545556575859'
-
-		end
+                .end

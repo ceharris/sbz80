@@ -1,23 +1,56 @@
-; Sizing of memory components used in the hardware
-sm_bank_size    equ 8192                ; small memory bank size
-lg_bank_size    equ 4*sm_bank_size      ; large memory bank size
 
-; These definitions are used in init.asm to place the stack and other
-; system variables
-ram_size        equ 3*sm_bank_size + lg_bank_size
-ram_start       equ sm_bank_size                ; start of RAM
-smem_start      equ ram_start                   ; start of system RAM
-umem_start      equ ram_start + sm_bank_size    ; start of user RAM
-im2_table_size	equ 256				; size of mode 2 vector table
+        ;---------------------------------------------------------------
+        ; Memory definitions
+        ; 
+        ; After system reset, the bootstrap memory mode is automatically
+        ; selected by the hardware. In this mode, the ROM is selected for
+        ; all memory accesses (by effectively ignoring A15..A13). Once 
+        ; the normal memory mode is selected (by configuring the mode 
+        ; port), the memory address space is divided as follows.
+        ;
+        ;       $0000..DFFF     RAM
+        ;       $E000..FFFF     ROM
+        ;---------------------------------------------------------------
 
-; These definitions are used in post.asm to make it easier to choose a
-; a starting address and size for memory tests than the real starting
-; address and size of RAM.
-ram_post_start	equ ram_start
-ram_post_size	equ ram_size
+        ; These definitions are used to set the memory mode register
 
-; Number of keyboard input samples to keep for debounce
-ki_samples	equ 2
+mode_normal     .equ 0
+mode_bootstrap  .equ $80
 
-; Size of keyboard ring buffer (must be a power of two)
-ki_ring_size	equ 4
+        ; Define the address ranges for RAM and ROM when in normal mode
+ram_top         .equ $e000
+rom_top         .equ $10000
+
+        ;---------------------------------------------------------------
+        ; System variables
+        ; Resserved system memory space is $0000..0100. This file
+        ; defines constants for the offset of each variable.
+        ;
+        ; Z80 restart vectors use address $0000..$003f
+        ; We place other system variables just above, so that
+        ; we have full use of the RST instructions.
+
+rst_vec         .equ 0
+rst_vec_size    .equ 64
+isrtab          .equ rst_vec+rst_vec_size       ; interrupt vector table
+isrtab_size     .equ 32                
+kiring          .equ isrtab+isrtab_size         ; keyboard input ring
+kiring_size     .equ 16
+kihead          .equ kiring+kiring_size         ; keyboard ring head pointer
+kihead_size     .equ 2
+kitail          .equ kihead+kihead_size         ; keyboard ring tail pointer
+kitail_size     .equ 2
+kibat           .equ kitail+kitail_size         ; keyboard BAT code
+kibat_size      .equ 1
+kiflag          .equ kibat+kibat_size           ; keyboard flags
+kiflag_size     .equ 1
+kimod           .equ kiflag+kiflag_size         ; keyboard modifiers
+kimod_size      .equ 1                          
+gpin            .equ kimod+kimod_size           ; GPIO input register state
+gpin_size       .equ 1
+gpout           .equ gpin+gpin_size             ; GPIO output register state
+gpout_size      .equ 1
+tkflag          .equ gpout+gpout_size           ; tick flags
+tkflag_size     .equ 1
+tkcnt           .equ tkflag+tkcnt_size          ; tick counter (32 bits)
+tkcnt_size      .equ 4          

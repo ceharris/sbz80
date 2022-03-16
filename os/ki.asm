@@ -1,614 +1,376 @@
-	;--------------------------------------------------------------
-	; Keyboard input support
-	;
-	; The SBZ80 mainboard has a 12-button keyboard that can be
-	; used to provide input to programs. The keys are identified
-	; as K0 through K11 and are connected to the least significant
-	; twelve bits of a 16-bit parallel (broadside) load shift
-	; register. The clock, load, and serial output signals of
-	; shift register are connected to a few pins the A port of the
-	; mainboard PIO unit. This module provides the support needed
-	; to read key press and release events and to generate symbol
-	; inputs from them.
-	;
-	; As with any input device made from mechanical switches, the
-	; switch inputs must be debounced to eliminate spurious key
-	; events produced as the switch contacts are joined and
-	; separated. In this module, debounce is accomplished by
-	; using a timer channel to drive an interrupt service routine
-	; that scans the inputs and folds the new inputs into a simple
-	; array-based filter algorithm.  Using this approach all twelve
-	; inputs are debounced simultaneously with a period of 8.192
-	; milliseconds.
-	;
-	; The resulting debounced state is used derive a stream of
-	; input symbols using a table that translates the key into a
-	; corresponding symbol which may a printable character or
-	; a function identifier of some kind.
-	;
-	; Two of the keys are used interpreted as latching modifiers,
-	; such that 40 different input symbols can be produced using
-	; just 12 keys. When a modifier key is pressed and released,
-	; the state of a modifier bit is toggled in memory. The two
-	; modifier bits are then interpreted as a modulo-4 integer
-	; multiplier to index the input symbol table when interpreting
-	; a key press event from one of the non-modifer keys.
-	;
-	; Input symbols derived from the keyboard are placed into
-	; a small ring buffer for subsequent retrieval by a program.
-	; Service functions are also provided to set the symbol table
-	; to use in interpreting inputs and to flush the ring buffer.
-	;--------------------------------------------------------------
+        ;---------------------------------------------------------------
+        ; Keyboard Input Module
+        ; 
+        ; The keyboard hardward interface is compatible with a PS/2 
+        ; keyboard. The interface consists of a shift register and
+        ; supporting logic to read 8-bit keyboard scan codes and
+        ; status codes. The shift register is connected to pio0 port A
+        ; operating in PIO mode 1. Each time that a valid keyboard
+        ; input is received, the contents of the shift register are
+        ; strobed into the PIO port, and a CPU interrupt is signaled.
+        ;
+        ; This module provides the interrupt service routine that 
+        ; reads keyboard inputs and translates scan codes and status
+        ; bytes into ASCII control/character codes. Additionally, it 
+        ; maintains a bit set that reflects the state of each key,
+        ; providing the means for a user program to use sophisticated
+        ; key press to function mappings.
+        ;---------------------------------------------------------------
 
-		name ki
+                .name ki
 
-		include memory.asm
-		include isr.asm
-		include ports.asm
-		include ctc_defs.asm
-		include pio_defs.asm
+                .include memory.asm
+                .include ports.asm
+                .include isr.asm
+                .include pio_defs.asm
 
-		extern syscfg
-		extern kiring
-		extern kirhd
-		extern kirtl
-		extern kiflag
-		extern kitab
-		extern kisamp
-		extern kistat
-		extern kiprev
-		extern setisr
+ki_port         .equ pio0_base+pio_port_a
+ki_port_isr     .equ isr_pio0_a
 
-ki_port		equ 	pio_port_base + pio_port_a
-ki_ctc_ch	equ 	ctc_ch7
-ki_isr_vec	equ 	isr_ctc_ch7
+kb_ok           .equ $aa
+kb_extended     .equ $e0
+kb_release      .equ $f0
+kb_err          .equ $fc
+kb_resend       .equ $fe
 
-ki_ctc_cfg	equ 	ctc_ei|ctc_timer|ctc_pre256|ctc_tc|ctc_reset|ctc_ctrl
+kb_shift_l      .equ $12
+kb_shift_r      .equ $59
+kb_ctrl_l       .equ $14
+kb_opt_l        .equ $11
 
-ki_ser_in	equ 0x8
-ki_shift	equ 0x10
-ki_clock	equ 0x20
+kb_e_ctrl_r     .equ $14
+kb_e_opt_r      .equ $11
+kb_e_cmd_l      .equ $1f
+kb_e_cmd_r      .equ $27
 
-ki_sym_keys	equ 10			; number of symbol keys
-ki_mod_mask	equ 0x3			; modifier key mask
+        ; Definitions for kiflag
+f_extended      .equ $01
+f_release       .equ $02
 
-	; Flag bit definitions
-ki_flag_ibusy	equ 7			; Blocks ISR re-entry
-ki_flag_mod_l	equ 1			; Left modifier state
-ki_flag_mod_r	equ 0			; Right modifier state
+        ; Definitions for kimod
+m_shift_l       .equ $01
+m_shift_r       .equ $02
+m_shift         .equ m_shift_l|m_shift_r
+m_ctrl_l        .equ $04
+m_ctrl_r        .equ $08
+m_ctrl          .equ m_ctrl_l|m_ctrl_r
+m_opt_l         .equ $10
+m_opt_r         .equ $20
+m_opt           .equ m_opt_l|m_opt_r
+m_cmd_l         .equ $40
+m_cmd_r         .equ $80
+m_cmd           .equ m_cmd_l|m_cmd_r
 
-		cseg
+                .cseg
 
-		; Time Constants by clock rate for 8.192 msec scan period
-tc_tab		db	32		; 1 MHz
-		db	64		; 2 MHz
-		db	128		; 4 MHz
-		db	0		; 8 MHz
-
-	;---------------------------------------------------------------
-	; kiinit:
-	; Initialize system variables used for keyboard input support.
-	;
+        ;---------------------------------------------------------------
+        ; kiinit:
+        ; Initialize the keyboard interface.
+        ;
 kiinit::
-		; initialize input ring buffer
-		ld hl,kiring		; point to start of ring
-		ld (kirhd),hl		; set the head pointer
-		ld (kirtl),hl		; set the tail pointer
+                ; initialize ring buffer
+                ld hl,kiring
+                ld (kihead),hl
+                ld (kitail),hl
 
-		; initialize symbol table pointer
-		ld hl,0
-		ld (kitab),hl
+                ; initialize flags and BAT code
+                xor a
+                ld (kiflag),a
+                ld (kimod),a
+                ld (kibat),a
 
-		xor a
-		ld (kiflag),a		; zero the flags
+                ; Set interrupt vector
+                ld hl,isrtab+ki_port_isr
+                ld (hl),low(kiisr)
+                inc hl
+                ld (hl),high(kiisr)
 
-		; initialize the samples array
-		ld hl,kisamp		; point to index byte
-		ld (hl),a		; zero the index byte
-		ld b,2*(ki_samples + 1)	; plus 1 for status word
-		dec a			; now A is all ones
-kiinit10:
-		inc hl
-		ld (hl),a
-		djnz kiinit10
+                ; enable PIO 0 port A interrupts
+                ld a,pio_ictl_ei+pio_ictl_word
+                out (ki_port+pio_cfg),a
 
-		ld hl,kidbnc		; address of keyboard ISR
-		ld c,ki_isr_vec		; interrupt vector number
-		call setisr		; set ISR vector
+                ; priming read
+                in a,(ki_port)
+                ret
 
-		ld a,ki_ctc_cfg
-		out (ki_ctc_ch),a	; configure our channel
 
-		ld a,(syscfg)
-		and 0x3			; get clock speed from config
+        ;---------------------------------------------------------------
+        ; Keyboard interrupt service routine
+        ;
+kiisr:
+                ei
+                push af
+                push bc
+                push hl
 
-		; point HL to TC table entry for clock speed
-		ld hl,tc_tab		; point to start of TC table
-		add a,l
-		ld l,a			; LSB of table entry
-		adc a,l			; propagate the carry
-		sub l			; remove bias of L
-		ld h,a			; MSB of table entry
+                in a,(ki_port)          ; read the input
+                ld b,a                  ; save it
 
-		; set TC for our channel
-		ld a,(hl)		; fetch TC for clock speed
-		out (ki_ctc_ch),a	; set TC
+                cp kb_ok                ; is it the OK BAT code?
+                jp z,kiisr_80
+                cp kb_err               ; is is the ERROR BAT code?
+                jp z,kiisr_80
+                cp kb_resend            ; is it a resend request?
+                jp z,kiisr_90
 
-		ret
+                cp kb_extended          ; extended scan code next?
+                jr nz,kiisr_10          ; go if not extended
+                ld a,(kiflag)
+                or f_extended
+                ld (kiflag),a
+                jp kiisr_90
+kiisr_10:
+                cp kb_release           ; key release next?
+                jr nz,kiisr_20          ; go if not key release
+                ld a,(kiflag)
+                or f_release
+                ld (kiflag),a
+                jp kiisr_90
+kiisr_20:
+                ld a,(kiflag)
+                ld c,a
+                and f_release           ; is it a key release?
+                jr z,kiisr_30
 
-	;---------------------------------------------------------------
-	; kidbnc:
-	; Debounce the keyboard
-	;
-	; This routine is intended to be invoked periodically from a
-	; timer interrupt with a period of about 10 ms. Each time it
-	; is called, it reads the (raw) keyboard inputs and stores it
-	; as a sample in a ring buffer. The routine then scans the
-	; buffer to determine which keys have been active (low) for at
-	; least as long as t*N, where t is the sample period and N is
-	; the number of samples.
-	;
-	; After the debounced keyboard state has been updated, the
-	; debounced inputs are scanned to determine whether an input
-	; symbol should be placed in an input ring buffer for program
-	; consumption via the `kiget` SVC. See the `kisym` routine for
-	; details.
-	;
-	; Because the process of scanning the keyboard and deriving
-	; input symbols is pretty lengthy, this routine re-enables
-	; interrupts as soon as possible. It uses a flag bit to prevent
-	; a subsequent timer interrupt from fully re-entering this routine
-	; before a current invocation is completed. In practice, given
-	; an interrupt rate of about 10 ms, re-entrant invocations should
-	; be fairly rare unless the system is exceptionally busy handling
-	; other interrupts.
-	;
-	; The `kiinit` routine must be called exactly once to initialize
-	; timer interrupt with a period of about 10 ms and to set up the
-	; other necessary in-memory state.
-	;
-	; On return:
-	;	- all registers preserved
-	;	- `kisamp` system variable updated with next raw
-	; 	  keyboard sample
-	; 	- `kistat` system variable updated with debounced state
-	;	  of all keys
-	;	- `kiring` and associated pointers updated with any
-	;	  input symbols derived from the debounced keyboard state
-	;	- interrupts enabled
-kidbnc::
-		push af
-		ld a,(kiflag)
-		bit ki_flag_ibusy,a
-		jr nz,kidbnc_skip	; don't re-enter
+                ; clear the release flag
+                ld a,c
+                and ~f_release
+                ld (kiflag),a
+                ld c,a
 
-		; prevent re-entry before enabling interrupts
-		set ki_flag_ibusy,a
-		ld (kiflag),a
-		ei
+                and f_extended          ; releasing an extended key?
+                jr nz,kiisr_rel_ext
 
-		; preserve the other registers we need
-		push bc
-		push de
-		push hl
+                ; check for release of non-extended modifier
+                ld a,b                  ; recover scan code
+                ld c,~m_shift_l        
+                cp kb_shift_l           ; is it left shift?
+                jr z,kiisr_rel_mod
+                ld c,~m_shift_r 
+                cp kb_shift_r           ; is it right shift?
+                jr z,kiisr_rel_mod
+                ld c,~m_ctrl_l
+                cp kb_ctrl_l            ; is it left ctrl?
+                jr z,kiisr_rel_mod
+                ld c,~m_opt_l
+                cp kb_opt_l             ; is it left option/alt?
+                jr z,kiisr_rel_mod
+                jp kiisr_90             ; ignore other key release
 
-		; get fresh keyboard input sample into DE
-		call kiraw
-		ld e,l
-		ld d,h
+kiisr_rel_ext:
+                ; clear the extended flag
+                ld a,c
+                and ~f_extended
+                ld (kiflag),a
 
-		; point HL to position for current sample
-		ld hl,kisamp
-		ld a,(hl)		; fetch sample index
-		ld c,a			; save current index
-		inc a			; next sample index
-		cp ki_samples		; at ring size?
-		jr c,kidbnc_no_wrap	; go if below ring size
-		xor a			; reset to start of ring
-kidbnc_no_wrap:
-		ld (hl),a		; store next sample index
-		inc hl			; point to start of samples
+                ; check for release of extended modifier
+                ld a,b
+                ld c,~m_ctrl_r
+                cp kb_e_ctrl_r          ; is it right control?
+                jr z,kiisr_rel_mod
+                ld c,~m_ctrl_r
+                cp kb_e_opt_r           ; is it right option/alt?
+                jr z,kiisr_rel_mod
+                ld c,~m_cmd_l
+                cp kb_e_cmd_l           ; is it left command?
+                jr z,kiisr_rel_mod
+                ld c,low ~m_cmd_r
+                cp kb_e_cmd_r           ; is it right command?
+                jr z,kiisr_rel_mod
+                jp kiisr_90             ; ignore other key release
 
-		; set HL to address for LSB of current sample
-		ld a,c			; recover current sample index
-		add a,l
-		ld l,a
-		adc a,h
-		sub l
-		ld h,a			; HL -> storage for LSB of sample
-		ld (hl),e		; store it
+kiisr_rel_mod:
+                ; clear modifier bit
+                ld a,(kimod)
+                and c
+                ld (kimod),a
+                jp kiisr_90
 
-		; now get address for MSB of current sample
-		ld a,ki_samples
-		add a,l
-		ld l,a
-		adc a,h
-		sub l
-		ld h,a			; HL -> storage for MSB of sample
-		ld (hl),d		; store it
+kiisr_30:
+                ld a,c
+                and f_extended          ; pressing an extended key?
+                jr nz,kiisr_ext
 
-		; point to samples
-		ld hl,kisamp
-		inc hl			; skip index byte
+                ld a,b                  ; recover scan code
+                ld c,m_shift_l        
+                cp kb_shift_l           ; is it left shift?
+                jr z,kiisr_mod
+                ld c,m_shift_r 
+                cp kb_shift_r           ; is it right shift?
+                jr z,kiisr_mod
+                ld c,m_ctrl_l
+                cp kb_ctrl_l            ; is it left ctrl?
+                jr z,kiisr_mod
+                ld c,m_opt_l
+                cp kb_opt_l             ; is it left option/alt?
+                jr z,kiisr_mod
 
-		; debounce keys K0-K7
-		xor a
-		ld b,ki_samples
-kidbnc_lower_keys:
-		or (hl)
-		inc hl
-		djnz kidbnc_lower_keys
-		ld e,a			; E = debounced keys
+                ; translate normal key code
+                ld a,(kimod)            ; get modifiers
+                ld c,a                  ; preserve 'em
+                ld hl,xlt_no_mod
+                or a                    ; any modifier?
+                jr z,kiisr_40
+                ld hl,xlt_shift_mod
+                and m_shift             ; shift modifier?
+                jr nz,kiisr_40
+                ld a,c
+                ld hl,xlt_ctrl_mod
+                and m_ctrl              ; ctrl modifier?
+                jr nz,kiisr_40
+                jr kiisr_90             ; ignore when other modifier
 
-		; debounce keys K8-K11
-		xor a
-		ld b,ki_samples
-kidbnc_upper_keys:
-		or (hl)
-		inc hl
-		djnz kidbnc_upper_keys
-		ld d,a			; D = debounced keys
+kiisr_ext:
+                ld a,c
+                and ~f_extended         ; clear the extended flag
+                ld (kiflag),a
 
-		; save previous state and new state
-		ld hl,(kistat)
-		ld (kiprev),hl
-		ld (kistat),de
+                ; check for press of extended modifier
+                ld a,b
+                ld c,m_ctrl_r
+                cp kb_e_ctrl_r          ; is it right control?
+                jr z,kiisr_mod
+                ld c,m_ctrl_r
+                cp kb_e_opt_r           ; is it right option/alt?
+                jr z,kiisr_mod
+                ld c,m_cmd_l
+                cp kb_e_cmd_l           ; is it left command?
+                jr z,kiisr_mod
+                ld c,m_cmd_r
+                cp kb_e_cmd_r           ; is it right command?
+                jr z,kiisr_mod
+                jr kiisr_90             ; ignore other extended key press
 
-		; scan for input only if debounced keyboard state changed
-		or a
-		sbc hl,de
-		jr z,kidbnc_done
+kiisr_mod:
+                ; set modifier bit
+                ld a,(kimod)
+                or c
+                ld (kimod),a
+                jr kiisr_90
 
-		; scan for input only if a symbol table is specified
-		ld hl,(kitab)
-		ld a,h
-		or l
-		jr z,kidbnc_done
+kiisr_40:
+                ; point HL to the translated code
+                ld a,l
+                add b
+                ld l,a
+                ld a,h
+                adc 0
+                ld h,a
 
-		call kimod		; update modifier state
-		call z,kisym		; check symbol input if no mod changed
+                ; get the tranlated code
+                ld a,(hl)
+                or a
+                jr z,kiisr_90           ; ignore if undefined translation
+                ld b,a                  ; save translated input
 
-kidbnc_done:
-		; restore registers we used
-		pop hl
-		pop de
-		pop bc
+                ld hl,(kitail)          ; HL -> input ring tail
+                ld c,l                  ; save LSB
+                inc l                   ; next position
+                ld a,l
+                and kiring_size-1       ; do we need to wrap?
+                jr nz,kiisr_70          ; nope...
+                ld l,low(kiring)        ; wrap to the beginning
+kiisr_70:
+                ld a,(kihead)           ; get the current head
+                cp l                    ; would we overrun?
+                jr z,kiisr_90           ; yep...
 
-		; clear the busy flag before returning
-		di
-		ld a,(kiflag)
-		res ki_flag_ibusy,a
-		ld (kiflag),a
-kidbnc_skip:
-		pop af
-		ei
-		reti
+                ld (kitail),hl          ; save the new tail
+                ld l,c                  ; now recover where we were
+                ld (hl),b               ; store the input
+                jr kiisr_90              
 
-	;---------------------------------------------------------------
-	; kiraw:
-	; Performs a raw read of the 16-bit shift register which provides
-	; the keyboard input bits. This function must be called from a
-	; debounce routine in order to get stable keyboard inputs.
-	;
-	; On return:
-	;	HL contains the 16-bit word from the shift register
-	;	AF destroyed
-	;
-kiraw::
-		push bc
+kiisr_80:
+                ld (kibat),a            ; store a BAT code
+kiisr_90:
+                pop hl
+                pop bc
+                pop af
+                reti
 
-		; toggle SH/LD# from high to low to load the shift register
-		in a,(ki_port)
-		or low(ki_shift & not(ki_clock))
-		out (ki_port),a			; SH/LD#=1 CLK=0
-		and low(not(ki_shift))
-		out (ki_port),a			; SH/LD#=0 CLK=0
-		or ki_shift
-		out (ki_port),a			; SH/LD#=1 CLK=0
-
-		ld b,16				; load 16 bits
-kiraw10:
-		; make room for next bit
-		sla l
-		rl h
-
-		; read next bit and set in result word if not zero
-		in a,(ki_port)
-		and ki_ser_in
-		or a			; is the input bit a one?
-		jr z,kiraw20
-		set 0,l
-kiraw20:
-		; pulse clock line to shift next bit into input
-		in a,(ki_port)
-		or ki_clock
-		out (ki_port),a 	; CLK=1
-		and low(not(ki_clock))
-		out (ki_port),a		; CLK=0
-
-		djnz kiraw10
-
-		pop bc
-		ret
-
-	;---------------------------------------------------------------
-	; kimod:
-	; Updates the current modifier key state.
-	;
-	; Modifier keys behave as toggles in the sense that a modifier
-	; bit is set on or off by pressing and releasing a modifier key,
-	; and remains in that state until the same modifier key is
-	; pressed and released again.
-	;
-	; Modifier state is always cleared after a symbol is input.
-	;
-	; On entry:
-	;	DE = debounced keyboard state
-	;
-	; On return:
-	;	AF and C destroyed
-	;	NZ indicates that modifier state was changed
-	;
-kimod:
-		ld a,d			; get modifier bits
-		srl a			; move into least
-		srl a			;   significant bits
-		and ki_mod_mask		; just the modifier bits
-
-		; is either modifier key currently pressed?
-		cp ki_mod_mask
-		ret z			; no modifier key pressed
-
-		cpl			; invert state (1=key down)
-		ld c,a
-		ld a,(kiflag)		; fetch keyboard flags
-		xor c			; toggle modifier bits
-		ld (kiflag),a		; store keyboard flags
-		or 1			; set NZ to indicate modifier change
-		ret
-
-	;---------------------------------------------------------------
-	; rinc:
-	; Macro that does a modulo-N increment on the low order byte of
-	; ring pointer, where N is the ring size.
-	;
-	; Parameters:
-	;	s = source register for low order byte
-	;	t = target register for incremented low order byte
-	;
-	; On return:
-	;	t = (s + 1) mod ring_size
-	;	AF destroyed
-	;
-rinc		macro t,s
-		local rinc_no_wrap,rinc_end
-		ld a,s
-		cp low(kiring + ki_ring_size - 1)
-		jr nz,rinc_no_wrap
-		ld t,low(kiring)
-		jr rinc_end
-rinc_no_wrap:
-		inc t
-rinc_end:
-		endm
-
-	;---------------------------------------------------------------
-	; kisym:
-	; Scans the debounced keyboard state for the next input symbol.
-	; If an input symbol is available, it is stored in the keyboard
-	; ring buffer.
-	;
-	; This routine will only accept an symbol key as an input if
-	; no other symbol key is pressed at the same time. Modifier keys
-	; may be pressed (or latched) and will be used in selecting the
-	; appropriate symbol from the currently selected symbol table.
-	;
-	; On entry:
-	;	DE = debounced keyboard state
-	;
-	; On return:
-	;	contents of all general purpose registers destroyed
-	;	NZ indicates a symbol was input, Z indicates no input
-	;
-kisym:
-		; check for available space in ring buffer
-		ld hl,(kirtl)
-		rinc l,l
-		ld a,(kirhd)
-		cp l
-		ret z			; don't scan if ring buffer full
-
-		ex de,hl		; HL = debounced keyboard state
-
-		; find first pressed symbol key
-		ld c,0			; symbol table "column"
-		ld b,ki_sym_keys	; number of symbol keys
-kisym_find_first:
-		srl h			; shift all key bits right
-		rr l
-		jr nc,kisym_key_down	; go if found a key pressed
-		inc c			; next symbol table "column"
-		djnz kisym_find_first	; loop for all 10 symbol keys
-		xor a			; indicate no key pressed
-		ret
-kisym_key_down:
-		; check for more than one symbol key pressed
-		dec b			; account for pressed key found
-		jr z,kisym_check_mod	; no more symbol bits
-		xor a			; zero to assume no key pressed
-kisym_find_next:
-		srl h			; shift all key bits right
-		rr l
-		ret nc			; return A=0 to mean no key pressed
-		djnz kisym_find_next	; loop for remaining symbol keys
-
-		; check for modifier bits
-kisym_check_mod:
-		ld a,(kiflag)		; fetch keyboard flags
-		and ki_mod_mask		; mask off bits that aren't modifiers
-		ld b,a			; will use them as a counter
-		or a			; set Z if no modifier bits set
-
-		ld hl,(kitab)		; fetch symbol table pointer
-		jr z,kisym_no_mod	; go if no modifiers
-
-		; compute table row pointer in HL
-		ld de,10		; multiply by 10 for modifier combos
-kisym_row_mult:
-		add hl,de
-		djnz kisym_row_mult
-
-kisym_no_mod:
-		; add column index to table row pointer
-		ld a,l
-		add a,c
-		ld l,a
-		adc a,h
-		sub l
-		ld h,a
-
-		; clear used modifier state
-		ld a,(kiflag)
-		and ~ki_mod_mask	; clear modifier bits
-		ld (kiflag),a
-
-kisym_store_symbol:
-		ld a,(hl)		; fetch the selected symbol
-		or a
-		ret z			; go if undefined symbol for key
-		ld hl,(kirtl)		; fetch tail pointer
-		ld (hl),a		; put symbol into the ring
-		rinc l,l
-		ld (kirtl),hl
-		ret
-
-	;---------------------------------------------------------------
-	; SVC: kiptr
-	; Gets a pointer to the 2-byte (debounced) keyboard status
-	; buffer. The keyboard status is continually updated as long as
-	; interrupts are enabled. A program can obtain this pointer and
-	; scan the keyboard by observing changes to the state of the
-	; corresponding 2-byte buffer.
-	;
-	; On return:
-	;	HL -> keyboard status buffer
-	;
-	;	(HL + 0) bit 0 = K0
-	;	(HL + 0) bit 1 = K1
-	;	...
-	;	(HL + 0) bit 7 = K7
-	; 	(HL + 1) bit 0 = K8
-	;	...
-	;	(HL + 1) bit 3 = K11
-	;
-	;	(HL + 1) bits 4-7 are hardwired system config flags
-
-kiptr::
-		ld hl,kistat
-		ret
-
-	;---------------------------------------------------------------
-	; SVC: kiread
-	; Reads (debounced) state of the keyboard. For programs that
-	; need to continuously scan the keyboard, it is more efficient
-	; to obtain a pointer to the keyboard status buffer using
-	; the @kiptr service.
-	;
-	; On return:
-	;	HL = keyboard state as individual bits, where any key that
-	;	     is currently pressed is represented as a zero.
-	;
-	;	     L bit 0 = K0
-	;	     L bit 1 = K1
-	;	     ...
-	;            L bit 7 = K7
-	;	     H bit 0 = K8
-	;            ...
-	;	     H bit 3 = K11
-	;
-	;            H bits 4-7 are hardwired system configuration flags
+        ;---------------------------------------------------------------
+        ; kiread:
+        ; Reads the next keyboard input event if available
+        ;
+        ; On return:
+        ;       NZ: A = keyboard input event
+        ;       Z: no event available
+        ;
 kiread::
-		ld hl,(kistat)
-		ret
+                push bc
+                push hl
+                ld hl,(kihead)          ; HL -> input ring head
+                ld a,(kitail)           ; A = ring tail LSB
+                cp l                    ; is the ring empty?
+                jr z,kiread_20          ; yep...
 
-	;---------------------------------------------------------------
-	; SVC: kiget
-	; Gets the next input symbol entered on the keyboard.
-	;
-	; As input symbols are scanned from the debounced keyboard
-	; signals, they are placed into a small ring buffer and retained
-	; until retrieved by this method.
-	;
-	; On return:
-	;	NZ => A contains the next input symbol
-	;	Z => no input symbol was available
-	;
-kiget::
-		push hl
-		ld hl,(kirhd)		; fetch head pointer
-		ld a,(kirtl)		; fetch tail pointer LSB (same MSB)
-		cp l
-		jr z,kiget_done		; buffer empty if pointers equal
-		rinc a,l		; increment head pointer
-		ld (kirhd),a		; store head pointer
-		ld a,(hl)		; fetch the stored symbol
-		or a			; clear zero flag
-kiget_done:
-		pop hl
-		ret
+                ld c,(hl)               ; get the event at head
+                inc l                   ; update head pointer
+                ld a,l                   
+                and kiring_size-1       ; do we need to wrap?
+                jr nz,kiread_10         ; nope...
+                ld l,low(kiring)        ; wrap to beginning
+kiread_10:
+                ld (kihead),hl          ; save new head
+                or 1                    ; set NZ
+                ld a,c                  ; return event in A
 
-	;---------------------------------------------------------------
-	; SVC: kiflus
-	; Flushes the ring buffer used to hold symbol input such that
-	; any input waiting in the buffer is discarded.
-	;
-	; On return:
-	;	AF destroyed
-	;
-kiflus::
-		push hl
+kiread_20:
+                pop hl
+                pop bc
+                ret
 
-		; Move head up to current tail.
-		; It's important that we change only the head pointer
-		; since interrupts might be enabled.
+xlt_no_mod:
+                db      $00,$00,$00,$00,$00,$00,$00,$00
+                db      $00,$00,$00,$00,$00,$09,$60,$00
+                db      $00,$00,$00,$00,$00,$71,$31,$00
+                db      $00,$00,$7a,$73,$61,$77,$32,$00
+                db      $00,$63,$78,$64,$65,$34,$33,$00
+                db      $00,$20,$76,$66,$74,$72,$35,$00
+                db      $00,$6e,$62,$68,$67,$79,$36,$00
+                db      $00,$00,$6d,$6a,$75,$37,$38,$00
+                db      $00,$2c,$6b,$69,$6f,$30,$39,$00
+                db      $00,$2e,$2f,$6c,$3b,$70,$2d,$00
+                db      $00,$00,$27,$00,$5b,$3d,$00,$00
+                db      $00,$00,$0d,$5d,$00,$5c,$00,$00
+                db      $00,$00,$00,$00,$00,$00,$08,$00
+                db      $00,$31,$00,$34,$37,$00,$00,$00
+                db      $30,$2e,$32,$35,$36,$38,$1b,$00
+                db      $00,$2b,$33,$2d,$2a,$39,$00,$00
+xlt_shift_mod:
+                db      $00,$00,$00,$00,$00,$00,$00,$00
+                db      $00,$00,$00,$00,$00,$00,$7e,$00
+                db      $00,$00,$00,$00,$00,$51,$21,$00
+                db      $00,$00,$5a,$53,$41,$57,$40,$00
+                db      $00,$43,$58,$44,$45,$24,$23,$00
+                db      $00,$00,$56,$46,$54,$52,$25,$00
+                db      $00,$4e,$42,$48,$47,$59,$5e,$00
+                db      $00,$00,$4d,$4a,$55,$26,$2a,$00
+                db      $00,$3c,$4b,$49,$4f,$29,$28,$00
+                db      $00,$3e,$3f,$4c,$3a,$50,$5f,$00
+                db      $00,$00,$22,$00,$7b,$2b,$00,$00
+                db      $00,$00,$00,$7d,$00,$7c,$00,$00
+                db      $00,$00,$00,$00,$00,$00,$00,$00
+                db      $00,$00,$00,$00,$00,$00,$00,$00
+                db      $00,$00,$00,$00,$00,$00,$00,$00
+                db      $00,$00,$00,$00,$00,$00,$00,$00
+xlt_ctrl_mod:
+                db      $00,$00,$00,$00,$00,$00,$00,$00
+                db      $00,$00,$00,$00,$00,$00,$00,$00
+                db      $00,$00,$00,$00,$00,$11,$00,$00
+                db      $00,$00,$1a,$13,$01,$17,$00,$00
+                db      $00,$03,$18,$04,$05,$00,$00,$00
+                db      $00,$00,$16,$06,$14,$12,$00,$00
+                db      $00,$0e,$02,$08,$07,$19,$00,$00
+                db      $00,$00,$0d,$0a,$15,$00,$00,$00
+                db      $00,$00,$0b,$09,$0f,$00,$00,$00
+                db      $00,$00,$00,$0c,$00,$10,$00,$00
+                db      $00,$00,$00,$00,$00,$00,$00,$00
+                db      $00,$00,$00,$00,$00,$00,$00,$00
+                db      $00,$00,$00,$00,$00,$00,$00,$00
+                db      $00,$00,$00,$00,$00,$00,$00,$00
+                db      $00,$00,$00,$00,$00,$00,$1b,$00
+                db      $00,$00,$00,$00,$00,$00,$00,$00
 
-		ld hl,(kirtl)		; fetch tail pointer
-		ld (kirhd),hl		; store as head pointer
-		pop hl
-		ret
+                .end
 
-	;---------------------------------------------------------------
-	; SVC: kistab
-	; Sets the keyboard symbol table.
-	;
-	; Subsequent input symbols scanned from the keyboard will use
-	; the specified symbol table. Inputs already scanned and placed
-	; in the input queue not unchanged.
-	;
-	; On entry:
-	;	HL = pointer to 40-byte symbol table
-	;
-	; On return:
-	;	HL = previous keyboard symbol table pointer
-	;
-kistab::
-		push de
-		ld de,(kitab)
-		ld (kitab),hl
-		ex de,hl
-		pop de
-		ret
-
-	;---------------------------------------------------------------
-	; SVC: kigtab
-	; Gets the keyboard symbol table.
-	;
-	; On return:
-	;	HL = keyboard symbol table pointer
-	;
-kigtab::
-		ld (kitab),hl
-		ret
-
-
-		end
