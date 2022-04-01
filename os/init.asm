@@ -3,12 +3,19 @@
         ;---------------------------------------------------------------
 
                 .name init
+        
+                .extern gpin
+                .extern gpout
+                .extern isrtab
+                .extern svctab
 
                 .extern ctcini
                 .extern kiinit
                 .extern l7init
                 .extern lcinit
                 .extern pioini
+                .extern sioini
+                .extern conini
                 .extern prog
                 .extern svcall
                 .extern tkinit
@@ -16,30 +23,23 @@
                 .include memory.asm
                 .include ports.asm
 
-wait            macro 
-                local wait_10
-;                ld a,(gpout)
- ;               or a,$80
-;                out (gpio_port),a
-
-wait_10:
-                in a,(gpio_port)
-                and $80
-                jp nz,wait_10
-
-;                ld a,(gpout)
-;                out (gpio_port),a
-                endm  
 
                 .cseg
-                jp init
 init::
-                ; select normal memory mode to enable RAM
+                ld a,mode_bootstrap
+                out (mode_port),a
+
+                ld hl,bootstrap_rom
+                ld de,bootstrap_ram
+                ld bc,rom_size
+                ldir
+
+                ; select normal memory mode
                 ld a,mode_normal
                 out (mode_port),a
 
                 ; put the stack at the top of RAM
-                ld sp,ram_top
+                ld sp,0
 
                 ; enable interrupt mode 2
                 xor a
@@ -61,29 +61,32 @@ init::
                 call init_isr
                 call ctcini
                 call pioini
+                call sioini
+                call conini
 
                 call l7init
                 call kiinit
                 call tkinit
                 call lcinit
-                ei
 
+                ei
                 jp prog
 
         ;---------------------------------------------------------------
         ; Initialize restart vectors
         ;
 init_vec:
-                ; point RST $0 to init
-                ld hl,0
+                ; RST $0 will jump to the reset spin
+                ; (since software reset isn't working properly yet)
+                ld hl,$0
                 ld (hl),$c3
                 inc hl
-                ld (hl),low(init)
+                ld (hl),low reset_spin
                 inc hl
-                ld (hl),high(init)
+                ld (hl),high reset_spin
 
                 ; RST $8 through RST $20 default to no-op
-                ld l,$8
+                ld hl,$8
                 ld (hl),$c9
                 ld l,$10
                 ld (hl),$c9
@@ -127,6 +130,25 @@ init_vec_10:
                 inc hl
                 djnz init_vec_10
                 ret
+
+        ;---------------------------------------------------------------
+        ; Spin forever with alternating LEDs on RST $0 or otherwise 
+        ; ending up with PC=$0000.
+        ;
+reset_spin:     
+                di
+                ld c,a
+reset_spin_10:
+                ld a,c
+                out (gpio_port),a
+                xor 3
+                ld c,a
+reset_spin_20:
+                inc hl
+                ld a,l
+                or h
+                jr nz,reset_spin_20
+                jr reset_spin_10
 
                 .end
 

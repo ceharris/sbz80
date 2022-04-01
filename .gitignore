@@ -5,4 +5,4 @@
 *.bin 
 *.z80
 .Z80_ports
-os/svc.asm
+os/svcid.asm

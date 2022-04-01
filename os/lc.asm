@@ -7,7 +7,9 @@
 
 
                 .name lc
-                
+
+                .extern gpin
+
                 .extern d1610
                 .extern d3210
 
@@ -70,8 +72,8 @@ lcd_row_length  .equ 64                 ; each row is 64 characters
 
         ;---------------------------------------------------------------
         ; lc_delay:
-        ; Imposes a delay in microseconds of no less than than 10 times 
-        ; the value specified as the argument. If the value of the 
+        ; Imposes a delay in microseconds of no less than than 10 times
+        ; the value specified as the argument. If the value of the
         ; argument is specified as zero, it is treated as $10000 (65536).
         ; Assumes the "normal" clock speed is 4 MHz and the "turbo"
         ; clock speed is 8 Mhz.
@@ -80,7 +82,7 @@ lc_delay        .macro du
                 .local lc_delay_10
 
                 ld bc,du                ;T=10) 2.5  | 1.25  usec
-                
+
                 ; get the "turbo" bit (if 0 our clock is twice as fast)
                 ld a,(gpin)             ;T=13) 3.25 | 1.625 usec
                 rla                     ;T=4)  1.0  | 0.5   usec
@@ -91,15 +93,15 @@ lc_delay        .macro du
                 rl b                    ;T=8)  2.0  | 1.0   usec
                                         ;----------------
                                         ;     10.75 | 5.375 usec (before)
-                .ifndef lc_no_wait                
-lc_delay_10:                
+                .ifndef lc_no_wait
+lc_delay_10:
                 nop                     ;T=4)  1.0  | 0.5   usec
                 nop                     ;T=4)  1.0  | 0.5   usec
                 nop                     ;T=4)  1.0  | 0.5   usec
                 nop                     ;T=4)  1.0  | 0.5   usec
                 dec bc                  ;T=6)  1.5  | 0.75  usec
                 ld a,b                  ;T=4)  1.0  | 0.5   usec
-                or c                    ;T=4)  1.0  | 0.5   usec  
+                or c                    ;T=4)  1.0  | 0.5   usec
                 jp nz,lc_delay_10       ;T=10) 2.5  | 1.25  usec
                                         ;--------------
                                         ;     10.0    5.0   usec (in the loop)
@@ -125,7 +127,7 @@ lc_write4       .macro r
         ; lcinit:
         ; Initializes the LCD display for 4-bit interface operation as
         ; described under "Initializing by Instruction" in the datasheet.
-        ; 
+        ;
         ; On return:
         ;       all general purpose registers destroyed
         ;
@@ -139,7 +141,7 @@ lcinit::
 
                 ; (8-bit mode) function set 8-bit interface
                 lc_write4 lcd_function+lcd_8bits
-                
+
                 ; wait for more than 4.1 ms
                 lc_delay 500            ; 5,000 usec
 
@@ -183,14 +185,14 @@ lcinit::
         ; lc_cmd:
         ; Executes an LCD command, assuming that the LCD controller is
         ; operating in 4-bit mode.
-        ; 
+        ;
         ; On entry:
         ;       A = LCD command
-        ; 
+        ;
         ; On return:
         ;       AF, C destroyed
         ;
-lc_cmd:                
+lc_cmd:
                 ld c,a                  ;save command word
 
                 ; prepare to send upper nibble
@@ -201,9 +203,9 @@ lc_cmd:
                 and $0f
 
                 out (lcd_port),a        ;RW=0, RS=0, EN=0
-                or lcd_e                
+                or lcd_e
                 out (lcd_port),a        ;RW=0, RS=0, EN=1
-                and ~lcd_e              
+                and ~lcd_e
                 out (lcd_port),a        ;RW=0, RS=0, EN=0
 
                 ; prepare to send lower nibble
@@ -211,12 +213,12 @@ lc_cmd:
                 and $0f
 
                 out (lcd_port),a        ;RW=0, RS=0, EN=0
-                or lcd_e                
+                or lcd_e
                 out (lcd_port),a        ;RW=0, RS=0, EN=1
-                and ~lcd_e              
+                and ~lcd_e
                 out (lcd_port),a        ;RW=0, RS=0, EN=0
 
-                ret                     
+                ret
 
         ;---------------------------------------------------------------
         ; lc_ddwrite:
@@ -234,12 +236,12 @@ lc_ddwrite:
                 rrca
                 rrca
                 rrca
-                and $0f                 
-                
+                and $0f
+
                 ; strobe upper nibble to the controller
                 or lcd_rs+lcd_e
                 out (lcd_port),a        ; RS=1, E=1, upper nibble
-                and ~lcd_e              
+                and ~lcd_e
                 out (lcd_port),a        ; RS=1, E=0
 
                 ; put lower nibble of character code into lower nibble of A
@@ -249,7 +251,7 @@ lc_ddwrite:
                 ; strobe lower nibble to the controller
                 or lcd_rs+lcd_e
                 out (lcd_port),a        ; RS=1, E=1, lower nibble
-                and ~lcd_e              
+                and ~lcd_e
                 out (lcd_port),a        ; RS=1, E=0
 
                 lc_delay 5
@@ -306,9 +308,9 @@ lc_phex8_30:
         ;
         ; On return:
         ;       AF destroyed
-        ;        
+        ;
 lccls::
-                push bc               
+                push bc
                 ld a,lcd_clear
                 call lc_cmd
                 lc_delay 250            ; 2,500 usec
@@ -321,12 +323,12 @@ lccls::
         ;
         ; On return:
         ;       AF destroyed
-        ;        
+        ;
 lchome::
                 push bc
                 ld a,lcd_home
                 call lc_cmd
-                lc_delay 250            ; 2,500 usec             
+                lc_delay 250            ; 2,500 usec
                 pop bc
                 ret
 
@@ -391,7 +393,7 @@ lcent::
         ;
         ; On return:
         ;       AF destroyed
-        ;  
+        ;
 lcshft::
                 push bc
                 ld a,c
@@ -415,16 +417,16 @@ lcshft::
         ;       C = column number (zero-based)
         ; On return:
         ;       AF, BC destroyed
-        ;        
+        ;
 lcgoto::
-                ld a,b                  
+                ld a,b
                 or a
                 jp z,lcgoto_col         ; jump if row z
                 xor a                   ; start at row zero
 lcgoto_row:
                 add lcd_row_length      ; add a row offset
                 djnz lcgoto_row         ; loop for all rows
-lcgoto_col:    
+lcgoto_col:
                 add c                   ; add column offset
                 or lcd_ddram_addr       ; set command bit
                 call lc_cmd
@@ -434,7 +436,7 @@ lcgoto_col:
         ;---------------------------------------------------------------
         ; lcputc:
         ; Puts a character into the DDRAM of the display at the cursor
-        ; position and updates the cursor position according to the 
+        ; position and updates the cursor position according to the
         ; display's entry mode.
         ;
         ; On entry:
@@ -451,7 +453,7 @@ lcputc::
         ;---------------------------------------------------------------
         ; lcputs:
         ; Puts a string into the DDRAM of the display. As each character
-        ; is written, the cursor position is updated according to the 
+        ; is written, the cursor position is updated according to the
         ; display's entry mode.
         ;
         ; On entry:
@@ -542,12 +544,12 @@ lcph32::
         ;---------------------------------------------------------------
         ; lcpd16:
         ; Puts an ASCII decimal representation of a 16 bit value into
-        ; the DDRAM of the display, updating the cursor position 
+        ; the DDRAM of the display, updating the cursor position
         ; according to the display's entry mode.
         ;
         ; On entry:
         ;       HL = value to display
-        ; 
+        ;
         ; On return:
         ;       AF destroyed
         ;
@@ -577,7 +579,7 @@ lcpd16_20:
                 ; display the result
                 ld a,(ix)
                 inc ix
-                or a                    
+                or a
                 jp z,lcpd16_30          ; go if at null terminator
                 ld c,a
                 call lc_ddwrite
@@ -585,7 +587,7 @@ lcpd16_20:
 lcpd16_30:
                 ; restore the stack
                 ld ix,lcpd16_bsize
-                add ix,sp        
+                add ix,sp
                 ld sp,ix
                 pop ix
                 pop hl
@@ -595,12 +597,12 @@ lcpd16_30:
         ;---------------------------------------------------------------
         ; lcpd32:
         ; Puts an ASCII decimal representation of a 32 bit value into
-        ; the DDRAM of the display, updating the cursor position 
+        ; the DDRAM of the display, updating the cursor position
         ; according to the display's entry mode.
         ;
         ; On entry:
         ;       DEHL = value to display
-        ; 
+        ;
         ; On return:
         ;       AF destroyed
         ;
@@ -637,7 +639,7 @@ lcpd32_20:
                 ; display the result
                 ld a,(ix)
                 inc ix
-                or a                    
+                or a
                 jp z,lcpd32_30          ; go if at null terminator
                 ld c,a
                 call lc_ddwrite
@@ -645,7 +647,7 @@ lcpd32_20:
 lcpd32_30:
                 ; restore the stack
                 ld ix,lcpd32_bsize
-                add ix,sp        
+                add ix,sp
                 ld sp,ix
                 pop ix
                 pop hl

@@ -25,7 +25,7 @@ ctc_notc        equ 0                   ; no time constant
 ctc_default     equ ctc_di|ctc_counter|ctc_pre16|ctc_falling|ctc_trigger|ctc_notc|ctc_reset|ctc_ctrl
 
                 ; Port offsets for channels
-ctc0_ch0        equ ctc0_base + 0 
+ctc0_ch0        equ ctc0_base + 0       ; used for serial port B clock
 ctc0_ch1        equ ctc0_base + 1
-ctc0_ch2        equ ctc0_base + 2       ; used for polled delay    
+ctc0_ch2        equ ctc0_base + 2
 ctc0_ch3        equ ctc0_base + 3       ; used for tick counter (tk.asm)

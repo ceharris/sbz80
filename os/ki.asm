@@ -19,6 +19,14 @@
 
                 .name ki
 
+                .extern isrtab
+                .extern kibat
+                .extern kiflag
+                .extern kihead
+                .extern kimod
+                .extern kiring
+                .extern kitail
+
                 .include memory.asm
                 .include ports.asm
                 .include isr.asm

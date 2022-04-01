@@ -10,22 +10,23 @@ L7_DISP_ADDR    .equ $07
 MODE_REG        .equ $00
 MODE            .equ $80
 
-RAM_TOP         .equ $e000
-ROM_TOP         .equ $10000
+BOOTSTRAP_ROM   .equ $0000
+BOOTSTRAP_RAM   .equ $8000
+ROM_SIZE        .equ 8192
 
-MADDR           .equ $100
-MLEN            .equ RAM_TOP - MADDR
+MADDR           .equ $400
+MLEN            .equ $10000 - MADDR
 
 BLUE            .equ $01
-WHITE           .equ $02
+GREEN           .equ $02
 
 
 tcount          .equ $40
 tfail           .equ $43
 taddr           .equ $44
-tpat:           .equ $46
-tact:           .equ $48
-tled:           .equ $50
+tpat            .equ $46
+tact            .equ $48
+tled            .equ $50
 
 
 blink           macro cnt
@@ -48,14 +49,16 @@ bdelay:
 
 
                 .aseg
-                .org RAM_TOP
+                .org 0
 
-                jp start
-start:
-                xor a
+                ld hl,BOOTSTRAP_ROM
+                ld de,BOOTSTRAP_RAM
+                ld bc,ROM_SIZE
+                ldir
+                ld a,MODE
                 out (MODE_REG),a
 
-                ld sp,RAM_TOP
+                ld sp,0
                 ld a,$0
                 out (SPI_ADDR_REG),a
 
@@ -140,7 +143,7 @@ mtest:
                 ld (hl),a               ; fill first byte
                 ldir                    ; fill the rest of RAM
 
-                ld a,WHITE
+                ld a,GREEN
                 ld (tled),a
                 out (IO_REG),a
 
@@ -436,9 +439,6 @@ delay10:
                 jr nz,delay10
                 pop af
                 ret
-
-                .org ROM_TOP-1
-                nop
 
 
                 .end

@@ -38,6 +38,11 @@
 
                 .name tk
 
+                .extern gpin
+                .extern isrtab
+                .extern tkcnt
+                .extern tkflag
+
                 .extern d32x8
 
                 .include memory.asm
@@ -48,8 +53,8 @@
 tk_ctc_ctrl     .equ ctc_ei+ctc_timer+ctc_pre256+ctc_falling+ctc_tc+ctc_ctrl
 
 tk_ctc_tc       .equ 72                ; time constant (pre-scale=256)
-tk_ctc_ch	.equ ctc0_ch1
-tk_ctc_isr	.equ isr_ctc0_ch1
+tk_ctc_ch	.equ ctc0_ch3
+tk_ctc_isr	.equ isr_ctc0_ch3
 
 tk_5ms_flag     .equ $1
 

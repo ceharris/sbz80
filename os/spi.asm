@@ -10,11 +10,11 @@
         ;
         ; SPI peripherals are selected by writing an address to a 3-bit
         ; register addressed as the spi_addr_port (see ports.asm). Bits
-        ; D1..D0 of the address are used to select one of four 
+        ; D1..D0 of the address are used to select one of four
         ; peripheral devices. Bit D7 is used as an inhibit bit. If this
-        ; bit is set in the address value, no SPI peripheral device 
-        ; will have its chip select (CS) input asserted. This allows 
-        ; the GPIO pins used for sdata and SCLK to be used for other 
+        ; bit is set in the address value, no SPI peripheral device
+        ; will have its chip select (CS) input asserted. This allows
+        ; the GPIO pins used for sdata and SCLK to be used for other
         ; purposes without inadvertently signalling an SPI device.
         ;
         ; See spi_defs.asm for SPI peripheral address assignments
@@ -22,6 +22,9 @@
 
 
                 .name spi
+
+                .extern gpout
+
                 .include memory.asm
                 .include ports.asm
 
@@ -45,9 +48,9 @@ sdata           .equ $80
         ;
 spi8::
                 push bc
-                
+
                 ; Pull SDATA and SCLK low before chip select.
-                ; This allows peripherals that automatically choose SPI mode 
+                ; This allows peripherals that automatically choose SPI mode
                 ; to determine the clock polarity.
                 ld a,(gpout)
                 and low ~(sdata|sclk)
@@ -64,23 +67,23 @@ spi8::
                 ld b,8
 spi8_10:
                 ; get next transmit bit into carry
-                rl e                   
+                rl e
 
                 ; send and receive one bit
                 rra                     ; get bit to send from carry
                 and sdata               ; sdata = bit to send, others zero
                 or c                    ; mask in GPIO bits other than SCLK
                 out (gpio_port),a       ; sdata = output bit, SCLK = low
-                or sclk                 
+                or sclk
                 out (gpio_port),a       ; sdata = output bit, SCLK = high
                 in a,(gpio_port)        ; read MISO
                 rla                     ; carry bit = MISO
-                ld a,c                  
+                ld a,c
                 out (gpio_port),a       ; SCLK = low, other GPIO bits unchanged
                 djnz spi8_10
 
                 ; rotate in last received bit
-                rl e                    
+                rl e
 
                 ; Deselect SPI peripheral
                 xor a
@@ -89,7 +92,7 @@ spi8_10:
                 ; Restore all GPIO outputs
                 ld a,(gpout)
                 out (gpio_port),a
-                
+
                 pop bc
                 ret
 
@@ -107,9 +110,9 @@ spi8_10:
         ;       AF destroyed
 spi16::
                 push bc
-                
+
                 ; Pull SDATA and SCLK low before chip select.
-                ; This allows peripherals that automatically choose SPI mode 
+                ; This allows peripherals that automatically choose SPI mode
                 ; to determine the clock polarity
                 ld a,(gpout)
                 and low ~(sdata|sclk)
@@ -126,7 +129,7 @@ spi16::
                 ld b,16
 spi16_10:
                 ; get next transmit bit into carry
-                rl e                   
+                rl e
                 rl d
 
                 ; send and receive one bit
@@ -134,16 +137,16 @@ spi16_10:
                 and sdata               ; sdata = bit to send, others zero
                 or c                    ; mask in GPIO bits other than SCLK
                 out (gpio_port),a       ; sdata = output bit, SCLK = low
-                or sclk                 
+                or sclk
                 out (gpio_port),a       ; sdata = output bit, SCLK = high
                 in a,(gpio_port)        ; read MISO
                 rla                     ; carry bit = MISO
-                ld a,c                  
+                ld a,c
                 out (gpio_port),a       ; SCLK = low, other GPIO bits unchanged
                 djnz spi16_10
 
                 ; rotate in last received bit
-                rl e                    
+                rl e
                 rl d
 
                 ; Delect SPI peripheral
@@ -153,7 +156,7 @@ spi16_10:
                 ; Restore all GPIO outputs
                 ld a,(gpout)
                 out (gpio_port),a
-                
+
                 pop bc
                 ret
 
@@ -177,7 +180,7 @@ spi8x::
                 push de
 
                 ; Pull sdata and SCLK low before chip select.
-                ; This allows peripherals that automatically choose SPI mode 
+                ; This allows peripherals that automatically choose SPI mode
                 ; to determine the clock polarity.
                 ld a,(gpout)
                 and low ~(sdata|sclk)
@@ -195,23 +198,23 @@ spi8x_10:
                 ld b,8                  ; transmit and receive 8 bits
 spi8x_20:
                 ; get next transmit bit into carry
-                rl (hl)                  
+                rl (hl)
 
                 ; send and receive one bit
                 rra                     ; get bit to send from carry
                 and sdata               ; sdata = bit to send, others zero
                 or c                    ; mask in GPIO bits other than SCLK
                 out (gpio_port),a       ; sdata = output bit, SCLK = low
-                or sclk                 
+                or sclk
                 out (gpio_port),a       ; sdata = output bit, SCLK = high
                 in a,(gpio_port)        ; read MISO
                 rla                     ; carry bit = MISO
-                ld a,c                  
+                ld a,c
                 out (gpio_port),a       ; SCLK = low, other GPIO bits unchanged
                 djnz spi8x_20
 
                 ; rotate in last received bit
-                rl (hl)                    
+                rl (hl)
 
                 inc hl
                 ld b,d                  ; recover byte count
@@ -224,7 +227,7 @@ spi8x_20:
                 ; Restore all GPIO outputs
                 ld a,(gpout)
                 out (gpio_port),a
-                
+
                 pop de
                 pop bc
                 ret

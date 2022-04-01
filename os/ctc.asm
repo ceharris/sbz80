@@ -11,6 +11,8 @@
 
                 .name ctc
 
+                .extern isrtab
+                
                 .include memory.asm
                 .include ports.asm
                 .include isr.asm
