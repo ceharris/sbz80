@@ -18,9 +18,11 @@ blink_loops     .equ $100
 
 kb_size         .equ 12
 
-                .cseg
-prog::
+base10_bufsize  .equ 16
 
+                .cseg
+
+prog::
                 ld c,$4                 ; display on
                 ld a,@lcctl
                 rst $28
@@ -54,7 +56,7 @@ loop:
                 or a
                 jp z,loop
                 call interp
-                jp nc,loop
+                jp c,loop
                 call execute
                 jp loop 
 
@@ -455,8 +457,7 @@ interp_check:
 
                 ld l,(ix+2)             ; get LSB of handler
                 ld h,(ix+3)             ; get MSB of handler
-                scf
-                ret                     ; return C and HL = handler
+                ret                     ; return NC and HL = handler
 
 interp_no_match:
                 ; set up to compare next command in table
@@ -480,13 +481,9 @@ interp_not_found:
                 ld hl,err_not_found
                 ld a,@cputs
                 rst $28
-                ; followed by newline
-                ld c,ascii_lf
-                ld a,@cputc
-                rst $28
 
-                or a
-                ret                     ; return NC (no command)
+                scf
+                ret                     ; return C flag (no command)
 
         ;---------------------------------------------------------------
         ; execute: Executes a command handler whose address is in HL
@@ -507,10 +504,108 @@ handle_cls:
                 ret
 
         ;---------------------------------------------------------------
-        ; Command Handler: ticks
+        ; Command Handler: uptime
         ;---------------------------------------------------------------
-base10_bufsize .equ 16
-handle_ticks:
+handle_uptime:
+                ld a,(argc)
+                cp 1
+                jr z,handle_uptime_formatted
+                ld hl,(argv+2)
+                ld a,(hl)
+                cp '-'
+                jr nz,handle_uptime_usage
+                inc hl
+                ld a,(hl)
+                cp 't'
+                jr nz,handle_uptime_usage
+                inc hl
+                ld a,(hl)
+                or a
+                jr nz,handle_uptime_usage
+                jr handle_uptime_ticks
+
+handle_uptime_usage:
+                ld hl,err_usage
+                ld a,@cputs
+                rst $28
+                ld hl,err_uptime
+                ld a,@cputs
+                rst $28
+                ret
+
+handle_uptime_formatted:
+                ld a,@tkrdut
+                rst $28
+
+                ld hl,line_buffer
+
+                ; convert days to decimal and delimit
+                ld e,(iy+0)
+                ld d,(iy+1)
+                call word_to_decimal
+                ld (hl),'d'
+                inc hl
+                ld (hl),ascii_space
+                inc hl
+
+                ; convert hours to decimal and delimit
+                ld e,(iy+2)
+                ld a,e
+                cp 10
+                jr nc,handle_uptime_nopad_hh
+                ld (hl),'0'
+                inc hl
+handle_uptime_nopad_hh:
+                call byte_to_decimal
+                ld (hl),':'
+                inc hl
+
+                ; convert minutes to decimal and delimit
+                ld e,(iy+3)
+                ld a,e
+                cp 10
+                jr nc,handle_uptime_nopad_mm
+                ld (hl),'0'
+                inc hl
+handle_uptime_nopad_mm:
+                call byte_to_decimal
+                ld (hl),':'
+                inc hl
+
+                ; convert seconds to decimal and delimit
+                ld e,(iy+4)
+                ld a,e
+                cp 10
+                jr nc,handle_uptime_nopad_ss
+                ld (hl),'0'
+                inc hl
+handle_uptime_nopad_ss:
+                call byte_to_decimal
+                ld (hl),'.'
+                inc hl
+
+                ; convert hundredths to decimal
+                ld e,(iy+5)
+                ld a,e
+                cp 10
+                jr nc,handle_uptime_nopad_hs
+                ld (hl),'0'
+                inc hl
+handle_uptime_nopad_hs:
+                call byte_to_decimal
+                ld (hl),ascii_lf
+                inc hl
+                
+                ; null-terminate the buffer
+                ld (hl),0
+                
+                ld hl,line_buffer
+                ld a,@cputs
+                rst $28
+                ret
+
+handle_uptime_ticks:
+                ; setup frame from stack
                 push ix
                 ld ix,-base10_bufsize
                 add ix,sp
@@ -520,6 +615,8 @@ handle_ticks:
 
                 dec ix
                 ld (ix),0               ; null terminate the buffer
+                dec ix
+                ld (ix),ascii_lf        ; add newline at end
 
                 ; read the tick counter into DEHL
                 ld a,@tkrd32
@@ -542,8 +639,8 @@ handle_ticks:
                 dec ix
                 ld (ix),'.'             ; insert the decimal point
 
+handle_uptime_ticks_next:
                 ; divide DEHL by 10 to get next digit
-handle_ticks_next:
                 ld a,@md3210
                 rst $28
                 add '0'                 ; convert remainder to ASCII digit
@@ -553,26 +650,84 @@ handle_ticks_next:
                 ; is the quotient now zero?
                 ld a,l
                 or h
-                jr nz,handle_ticks_next
+                jr nz,handle_uptime_ticks_next
                 or e
-                jr nz,handle_ticks_next
+                jr nz,handle_uptime_ticks_next
                 or d
-                jr nz,handle_ticks_next
+                jr nz,handle_uptime_ticks_next
 
                 ; display the result
                 push ix
                 pop hl
                 ld a,@cputs
                 rst $28
-                ld c,ascii_lf
-                ld a,@cputc
-                rst $28
 
+                ; remove frame from stack
                 ld ix,base10_bufsize
                 add ix,sp
                 ld sp,ix
                 pop ix
                 ret
+
+
+        ;---------------------------------------------------------------
+        ; Command Handler: fill
+        ;---------------------------------------------------------------
+handle_fill:
+                ; validate that there are exactly three args
+                ld a,(argc)
+                cp 4                    ; command + args
+                jr nz,handle_fill_usage
+
+                ; parse and validate address arg
+                ld hl,(argv+2)          ; HL -> address arg
+                call parse_hex
+                jr c,handle_fill_usage
+                ex de,hl                ; preserve address in DE
+                
+                ; parse and validate octet arg
+                ld hl,(argv+4)          ; HL -> octet arg
+                call parse_hex
+                jr c,handle_fill_usage
+                
+                ; validate no more than eight significant bits in octet arg
+                ld a,h
+                or a
+                jr nz,handle_fill_usage
+                ld c,l
+
+                ; parse and validate count arg
+                ld hl,(argv+6)          ; HL -> count arg
+                call parse_dec
+                jr c,handle_fill_usage
+
+                ; do the fill operation                
+                ex de,hl                ; swap address and count                
+                ld (hl),c               ; fill first byte
+                ; transfer count to BC
+                ld c,e
+                ld b,d
+                dec bc                  ; we already filled first byte
+                ; make sure the count isn't now zero
+                ld a,c
+                or b
+                ret z
+                ; copy HL to DE
+                ld e,l
+                ld d,h
+                inc de                  ; DE = HL + 1
+                ldir                    ; fill remaining count
+                ret
+
+handle_fill_usage:
+                ld hl,err_usage
+                ld a,@cputs
+                rst $28
+                ld hl,err_fill
+                ld a,@cputs
+                rst $28
+                ret
+
 
         ;---------------------------------------------------------------
         ; Command Handler: peek
@@ -584,14 +739,17 @@ handle_peek:
 
 handle_peek_addr:
                 ld hl,(argv+2)
-                call hex_parse
+                call parse_hex
                 jr c,handle_peek_usage
 
                 call hexdump
                 ret
 
 handle_peek_usage:
-                ld hl,err_peek_usage
+                ld hl,err_usage
+                ld a,@cputs
+                rst $28
+                ld hl,err_peek
                 ld a,@cputs
                 rst $28
                 ret
@@ -606,7 +764,7 @@ handle_poke:
                 cp 3                    ; command + args
                 jr c,handle_poke_usage
                 ld hl,(argv+2)          ; HL -> address arg
-                call hex_parse          
+                call parse_hex          
                 jr c,handle_poke_usage 
                 push hl
 
@@ -625,7 +783,7 @@ handle_poke_check:
                 or h
                 jr z,handle_poke_begin
                 ; validate argument
-                call hex_parse
+                call parse_hex
                 jr c,handle_poke_usage
                 ; must be no more than 8 signficant bits
                 ld a,h
@@ -649,7 +807,7 @@ handle_poke_next:
                 or h
                 jr z,handle_poke_done
                 ; convert arg to byte in A
-                call hex_parse
+                call parse_hex
                 ld a,l
                 pop hl                  ; recover target address
                 ld (hl),a               ; store arg as a byte
@@ -662,10 +820,14 @@ handle_poke_done:
                 ret
 
 handle_poke_usage:
-                ld hl,err_poke_usage
+                ld hl,err_usage
+                ld a,@cputs
+                rst $28
+                ld hl,err_poke
                 ld a,@cputs
                 rst $28
                 ret
+
 
         ;---------------------------------------------------------------
         ; hexdump:
@@ -682,7 +844,7 @@ hexdump:
 hexdump_next:
                 ld c,b
                 push de
-                ld hl,hexdump_line
+                ld hl,line_buffer
 
                 ld a,d
                 call hex_octet
@@ -740,12 +902,13 @@ hexdump_next_ascii_no_pad:
                 ld (hl),ascii_lf
                 inc hl
                 ld (hl),0
-                ld hl,hexdump_line
+                ld hl,line_buffer
                 ld a,@cputs
                 rst $28
 
                 djnz hexdump_next
                 ret
+
 
         ;---------------------------------------------------------------
         ; hex_octet:
@@ -795,78 +958,229 @@ hex_octet_letter2:
                 pop bc
                 ret
 
-hex_parse:
+
+        ;---------------------------------------------------------------
+        ; parse_hex:
+        ; Parses an ASCII hexadecimal string to a 16-bit value.
+        ;
+        ; On entry:
+        ;       HL = pointer to null-teerminated string
+        ;
+        ; On return:
+        ;       Flag C indicates error
+        ;       HL = converted value (if flag NC)
+        ;       
+parse_hex:
                 push bc
                 push de
-                ex de,hl
-                ld hl,0
-hex_parse_next:
-                ld a,(de)
+                ex de,hl                ; DE = input string pointer
+                ld hl,0                 ; HL = initial value of conversion
+parse_hex_next:
+                ld a,(de)               ; get next input char
                 inc de
-                or a
-                jr z,hex_parse_done
+                or a                    ; is it the null-terminator?
+                jr z,parse_hex_done     ; yep...
                 cp '0'
-                jr c,hex_parse_done
+                jr c,parse_hex_done     ; return with C flag if less than '0'
                 cp '9'+1
-                jr c,hex_parse_digit
-                cp 'A'
-                jr c,hex_parse_done
+                jr c,parse_hex_digit    ; go convert if between '0' and '9'
+                cp 'A'                
+                jr c,parse_hex_done     ; return with C flag if less than 'A' 
                 cp 'F'+1
-                jr c,hex_parse_letter
+                jr c,parse_hex_letter   ; go convert if between 'A' and 'F'
                 cp 'a'
-                jr c,hex_parse_done
+                jr c,parse_hex_done     ; return with C flag if less than 'a'
                 cp 'f'+1
-                jr c,hex_parse_letter
-                scf
-                jr hex_parse_done
-hex_parse_letter:
-                and ~$20
-                sub 'A'-10
-                jr hex_parse_fold
-hex_parse_digit:
-                sub '0'
-hex_parse_fold:
-                ld c,a
-                ld a,l
-                ld b,4
-                or a
-hex_parse_multiply:
-                rla
-                rl h
-                djnz hex_parse_multiply
-                or c
-                ld l,a
-                jr hex_parse_next
-
-hex_parse_done:
+                jr c,parse_hex_letter   ; go convert if between 'a' and 'f'
+                scf                     ; it's greater than 'f'
+                jr parse_hex_done       ; go return with C flag
+parse_hex_letter:
+                and ~$20                ; convert to upper case
+                sub 'A'-10              ; convert to binary value in [10..15]
+                jr parse_hex_fold
+parse_hex_digit:
+                sub '0'                 ; convert to binary value in [0..9]
+parse_hex_fold:
+                ld c,a                  ; preserve converted value
+                ld a,l                  ; A = LSB of current conversion
+                ld b,4                  ; will shift left 4 bits
+                or a                    ; clear carry
+parse_hex_multiply:
+                rla                     ; shift LSB 1 bit to the left
+                rl h                    ; shift MSB 1 bit to the left
+                djnz parse_hex_multiply ; until all four bits shifted
+                or c                    ; include bits of converted char
+                ld l,a                  ; save new LSB
+                jr parse_hex_next       ; go convert next char
+parse_hex_done:
                 pop de
                 pop bc
                 ret
 
+
+        ;---------------------------------------------------------------
+        ; parse_dec:
+        ; Parses an ASCII decimal string to a 16-bit value.
+        ;
+        ; On entry:
+        ;       HL = pointer to null-terminated string
+        ;
+        ; On return:
+        ;       C flag indicates parse error
+        ;       HL = converted value (if NC flag)  
+        ;
+parse_dec:
+                push bc
+                push de
+                ex de,hl                ; DE = input string pointer
+                ld hl,0                 ; HL = initial value of conversion
+parse_dec_next:
+                ld a,(de)               ; get next input character
+                inc de
+                or a
+                jr z,parse_dec_done
+                cp '0'
+                jr c,parse_dec_done     ; return with C flag if less than '0'
+                cp '9'+1
+                jr c,parse_dec_digit    ; convert digit '0'..'9'
+                scf                     ; it's greater than '9'
+                jr parse_dec_done       ; return with C flag
+parse_dec_digit:
+                sub '0'                 ; convert to value in [0..9]
+                ld c,a                  ; preserve converted value
+
+                push de                 ; preserve input pointer
+                ; set DE = conversion value, HL = input pointer
+                ex de,hl
+                ld a,10                 ; multiply by 10
+                ld b,8
+                ld hl,0
+parse_dec_digit_10:
+                add hl,hl
+                rlca
+                jr nc,parse_dec_digit_20
+                add hl,de
+parse_dec_digit_20:
+                djnz parse_dec_digit_10
+                pop de                  ; recover input pointer
+                ; include last converted digit value
+                ld a,l
+                add a,c                 ; add in saved digit value
+                ld l,a
+                ld a,h
+                adc a,0
+                ld h,a
+                jr parse_dec_next
+parse_dec_done:
+                pop de
+                pop bc
+                ret
+
+
+        ;---------------------------------------------------------------
+        ; byte_to_decimal:
+        ; Convert an 8-bit value to ASCII decimal.
+        ;
+        ; On entry:
+        ;       E = value to convert
+        ;       HL = buffer to receive ASCII decimal digits
+        ;
+        ; On return:
+        ;       DE = 0
+        ;       HL = HL' + length of ASCII digit string
+        ;
+byte_to_decimal:
+                ld d,0
+                ; NOTE: falls through
+
+        ;---------------------------------------------------------------
+        ; word_to_decimal:
+        ; Convert a 16-bit value to ASCII decimal.
+        ;
+        ; On entry:
+        ;       DE = value to convert
+        ;       HL = buffer to receive ASCII decimal digits
+        ;
+        ; On return:
+        ;       DE = 0
+        ;       HL = HL' + length of ASCII digit string
+        ;
+word_to_decimal:
+                ex de,hl                ; HL = value, DE = buffer pointer
+                push bc
+                push ix
+                ld ix,-base10_bufsize
+                add ix,sp
+                ld sp,ix
+                ld ix,base10_bufsize
+                add ix,sp
+
+                ; null terminate the buffer
+                xor a
+                dec ix
+                ld (ix),a
+word_to_decimal_10:
+                ; divide HL by 10
+                ld a,@md1610
+                rst $28
+                add a,'0'               ; convert to ASCII decimal
+                dec ix          
+                ld (ix),a               ; store the digit
+
+                ; is quotient now zero?
+                ld a,l                  
+                or h
+                jr nz,word_to_decimal_10
+
+                ex de,hl                ; HL = buffer pointer, DE = 0
+word_to_decimal_20:
+                ld a,(ix)               ; get digit or terminator from buffer
+                inc ix
+                or a
+                jr z,word_to_decimal_30 ; go if null terminator
+                ld (hl),a               ; store the digit
+                inc hl                  ; next buffer position
+                jr word_to_decimal_20
+word_to_decimal_30:
+                ld sp,ix
+                pop ix
+                pop bc
+                ret
+
+
 days:           db "d ",0
 
-ready:          db "Ready", $d, $a, "> ", 0
+ready:          db "Ready", ascii_lf, "> ", 0
 
-err_not_found:  db "not found",0
-err_peek_usage: db "usage: peek <address>",ascii_lf,0
-err_poke_usage: db "usage: poke <address> <octet> [<octet> ...]",ascii_lf,0
+err_not_found:  db "not found",ascii_lf,0
+err_usage:      db "usage: ",0
+err_fill:       db "fill <address> <octet> <length>",ascii_lf,0
+err_peek:       db "peek <address>",ascii_lf,0
+err_poke:       db "poke <address> <octet> [<octet> ...]",ascii_lf,0
+err_uptime:     db "uptime [-t]",ascii_lf,0
+
 ansi_ed2:       db ascii_esc,"[2J",0
 
 cmd_cls:        db "cls",0
 cmd_clear:      db "clear",0
+cmd_fill:       db "fill",0
 cmd_peek:       db "peek",0
 cmd_poke:       db "poke",0
-cmd_ticks:      db "ticks",0
+cmd_uptime:     db "uptime",0
 
 cmdtab:
                 dw cmd_cls,handle_cls
                 dw cmd_clear,handle_cls
+                dw cmd_fill,handle_fill
                 dw cmd_peek,handle_peek
                 dw cmd_poke,handle_poke
-                dw cmd_ticks,handle_ticks
+                dw cmd_uptime,handle_uptime
                 dw 0
 
                 .dseg
+
+argc:           ds 1
+argv:           ds 127
 
 uptime:         ds 8
 last_secs:      ds 1
@@ -878,7 +1192,4 @@ blinker:        ds 1
 kb_buf          ds kb_size
 kb_cnt          ds 1
 
-
-argc:           ds 1
-argv:           ds 128
-hexdump_line:   ds 80
+line_buffer:    ds 80
