@@ -7,6 +7,7 @@
                 .cseg
 
         ;---------------------------------------------------------------
+        ; d8x8:
         ; Divide C by D.
         ;
         ; On entry:
@@ -33,10 +34,39 @@ d8x8_20:
                 djnz d8x8_10
                 ret
 
-        ;       
+
+        ;---------------------------------------------------------------
+        ; d16x8:
+        ; Divide HL by C.
+        ;
+        ; On entry:
+        ;       HL = dividend
+        ;       C = divisor
+        ;
+        ; On return:
+        ;       A = remainder
+        ;       B = 0
+        ;       HL = quotient
+        ;       C, DE are unchanged
+        ;
+d16x8::
+                ld b,16
+                xor a
+d16x8_10:
+                add hl,hl
+                rla
+                cp c
+                jr c,d16x8_20
+                inc l
+                sub c
+d16x8_20:
+                djnz d16x8_10
+                ret
+
+
         ;---------------------------------------------------------------
         ; d32x8:
-        ; Divide DEHL by C
+        ; Divide DEHL by C.
         ;
         ; On entry:
         ;       DEHL = dividend
