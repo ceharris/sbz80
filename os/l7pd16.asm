@@ -11,7 +11,7 @@ dflag_spaces    .equ $40
         ;       C = bit-packed options as follows
         ;           bit 7: interpret L as signed (1) or unsigned (0)
         ;           bit 6: pad on left with spaces (1) or zeroes (0)
-        ;           bits 5..3: digit position of the point (0..7 or 0 to omit it)
+        ;           bits 5..3: relative position of the point (0..7)
         ;           bits 2..0: rightmost digit for output
         ;       B = bit-packed options as follows
         ;           bit 7: include (1) or exclude (0) decimal point
@@ -36,7 +36,7 @@ l7pd8::
         ;       C = bit-packed options as follows
         ;           bit 7: interpret L as signed (1) or unsigned (0)
         ;           bit 6: pad on left with spaces (1) or zeroes (0)
-        ;           bits 5..3: digit position of the point (0..7 or 0 to omit it)
+        ;           bits 5..3: relative position of the point (0..7)
         ;           bits 2..0: rightmost digit for output
         ;       B = bit-packed options as follows
         ;           bit 7: include (1) or exclude (0) decimal point
@@ -58,7 +58,7 @@ l7pd16::
         ;       C = bit-packed options as follows
         ;           bit 7: interpret L as signed (1) or unsigned (0)
         ;           bit 6: pad on left with spaces (1) or zeroes (0)
-        ;           bits 5..3: digit position of the point (0..7 or 0 to omit it)
+        ;           bits 5..3: relative position of the point (0..7)
         ;           bits 2..0: rightmost digit for output
         ;       B = bit-packed options as follows
         ;           bit 7: include (1) or exclude (0) decimal point
@@ -211,7 +211,7 @@ l7pd32_70:
                 ; set decimal point position if requested
                 ld a,c                  ; A = register C as it was on entry
                 
-                ; get position of decimal point
+                ; get relative position of decimal point
                 rrca
                 rrca
                 rrca

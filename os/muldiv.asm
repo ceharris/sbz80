@@ -164,4 +164,28 @@ m16x8_20:
                 djnz m16x8_10
                 ret
 
+        ;---------------------------------------------------------------
+        ; m16x16
+        ; Multiply DE by BC.
+        ;
+        ; On return:
+        ;       DEHL = product
+        ;       BC is unchanged
+        ;       A = 0
+m16x16::
+                ld hl,0
+                ld a,16
+m16x16_10:
+                add hl,hl
+                rl e
+                rl d
+                jr nc,m16x16_20
+                add hl,bc
+                jr nc,m16x16_20
+                inc de
+m16x16_20:
+                dec a
+                jr nz,m16x16_10
+                ret
+                
                 .end

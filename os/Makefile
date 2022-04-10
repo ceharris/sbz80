@@ -1,7 +1,7 @@
 # Makefile for SBZ80 Operating System Image
  
-CSEG_ADDR=0800
-DSEG_ADDR=2800
+CSEG_ADDR=0400
+DSEG_ADDR=2000
 
 #
 # Linker utility
@@ -24,6 +24,8 @@ MODULES=lomem.rel \
 	l7.rel \
 	lc.rel \
 	tk.rel \
+	adc.rel \
+	rtc.rel \
 	prog.rel
 
 IMAGE=sbos
@@ -69,6 +71,10 @@ l7.rel: l7.asm spi_defs.asm
 lc.rel: lc.asm ports.asm pio_defs.asm
 
 tk.rel: tk.asm memory.asm ports.asm isr.asm ctc_defs.asm
+
+adc.rel: adc.asm ports.asm adc_defs.asm spi_defs.asm
+
+rtc.rel: rtc.asm spi_defs.asm
 
 prog.rel: prog.asm svcid.asm
 

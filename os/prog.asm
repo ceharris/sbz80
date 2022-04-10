@@ -5,7 +5,7 @@
                 .include memory.asm
                 .include svcid.asm
                 .include ports.asm
-                .include adc.asm
+                .include adc_defs.asm
                 .include pio_defs.asm
                 .include ascii.asm
 
@@ -64,7 +64,7 @@ idle:
                 call blink
                 call kb_read
                 call update_adc
-                call l7ticks
+                call chrono
                 call lc_uptime
                 ret
 
@@ -287,18 +287,25 @@ nopad_ss:
                 ret
 
 chrono:
-                ifdef BROKEN
-                ; divide time by 100 to get seconds and hundredths
-                ld c,100
+                ld a,@tkrd32
+                rst $28
+
+                ; divide time by 10 to get tenths and hundredths
+                ld c,10
                 ld a,@md32x8
                 rst $28
 
-                ; display hundredths in a two-digit zero-padded field
+                ; divide time by 10 to get seconds and tenths
+                ld c,10
+                ld a,@md32x8
+                rst $28
+
+                ; display tenths as a single digit at position 0
                 ; in digits 1..0
                 push hl
                 ld l,a
                 ld c,00000000b
-                ld b,00000001b
+                ld b,00000000b
                 ld a,@l7pd8
                 rst $28
                 pop hl
@@ -309,11 +316,11 @@ chrono:
                 rst $28
 
                 ; display seconds in a two-digit zero-padded field
-                ; with trailing decimal point in digits 3..2
+                ; with trailing decimal point in digits 2..1
                 push hl
                 ld l,a
-                ld c,00010010b
-                ld b,10000011b
+                ld c,00000001b
+                ld b,10000010b
                 ld a,@l7pd8
                 rst $28
                 pop hl
@@ -324,31 +331,23 @@ chrono:
                 rst $28
 
                 ; display minutes in a two-digit zero-padded field
-                ; with trailing decimal point in digits 5..4
+                ; with trailing decimal point in digits 4..3
                 push hl
                 ld l,a
-                ld c,00100100b
-                ld b,10000101b
+                ld c,00000011b
+                ld b,10000100b
                 ld a,@l7pd8
                 rst $28
                 pop hl
 
-                ; divide time by 24 to get days and hours
-                ld c,24
-                ld a,@md32x8
-                rst $28
-
-                ; display hours in a two-digit space-padded field
-                ; with trailing decimal point in digits 7..6
-                push hl
-                ld l,a
-                ld c,01110110b
+                ; display hours in a three-digit zero-padded field
+                ; with trailing decimal point in digits 7..5
+                ld c,00000101b
                 ld b,10000111b
-                ld a,@l7pd8
+                ld a,@l7pd16
                 rst $28
-                pop hl
            
-                endif
+                ret
 
         ;---------------------------------------------------------------
         ; parse_args:
@@ -492,6 +491,196 @@ execute:
                 jp (hl)
                 ret
 
+
+        ;---------------------------------------------------------------
+        ; Command Handler: adc0
+        ;---------------------------------------------------------------
+handle_adc0:
+                ld a,(argc)
+                cp 2
+                jr nc,handle_adc0_specific
+
+                ld b,8
+handle_adc0_next:
+                ld a,8
+                sub b
+                ld c,a
+                call handle_adc0_channel
+                djnz handle_adc0_next
+                ret
+
+handle_adc0_specific:
+                cp 2
+                jr nz,handle_adc0_usage
+                ld hl,(argv+2)
+                call parse_dec
+                jr c,handle_adc0_usage
+                ld a,l
+                cp 8                    ; there are only 8 channels
+                jr nc,handle_adc0_usage
+                ld c,a
+
+handle_adc0_channel:
+                ld hl,line_buffer
+
+                ; display channel number
+                ld e,c                  
+                call byte_to_decimal    ; convert to decimal
+                ld (hl),':'
+                inc hl
+                ld (hl),ascii_space
+                inc hl
+
+                ; read the channel and display raw 8-bit value
+                ld a,c
+                add a,adc0_ch0
+                ld c,a
+                in a,(c)
+                ld c,a                  ; preserve the reading
+                ld e,a
+                call byte_to_decimal    ; convert to decimal
+                ld (hl),ascii_space
+                inc hl
+                ld (hl),'('
+                inc hl
+
+                ; display reading as a percentage
+                ; by computing p = 100 * r/256
+                ; (reading is in C)
+                push bc                 ; preserve port counter
+                push hl                 ; preserve buffer pointer
+                ld de,100
+                ld a,@mm16x8            
+                rst $28                 ; multiply reading by 100
+                ld a,h                  ; "divide" by discarding LSB
+                pop hl                  ; recover buffer pointer
+                pop bc                  ; restore port counter
+
+                ld e,a
+                call byte_to_decimal    ; convert to decimal
+
+
+                ld (hl),'%'
+                inc hl
+                ld (hl),')'
+                inc hl
+                ld (hl),ascii_lf
+                inc hl
+                ld (hl),0
+
+                ld hl,line_buffer
+                ld a,@cputs
+                rst $28
+                ret
+
+handle_adc0_usage:
+                ld hl,err_usage
+                ld a,@cputs
+                rst $28
+                ld hl,err_adc0
+                ld a,@cputs
+                rst $28
+                ret
+
+        ;---------------------------------------------------------------
+        ; Command Handler: adc1
+        ;---------------------------------------------------------------
+handle_adc1:
+                ld a,(argc)
+                cp 2
+                jr nc,handle_adc1_specific
+
+                ld b,8
+handle_adc1_next:
+                ld a,8
+                sub b
+                ld c,a
+                call handle_adc1_channel
+                djnz handle_adc1_next
+                ret
+
+handle_adc1_specific:
+                ld hl,(argv+2)
+                call parse_dec
+                jr c,handle_adc1_usage
+                ld a,l
+                cp 16                   ; there are only 16 channels
+                jr nc,handle_adc1_usage
+                ld c,a                  ; preserve channel number
+
+handle_adc1_channel:
+                ld hl,line_buffer
+
+                ; display channel number
+                ld e,a
+                call byte_to_decimal    ; convert to decimal
+                ld (hl),':'
+                inc hl
+                ld (hl),ascii_space
+                inc hl
+
+                ; read the channel and display raw 10-bit value
+                push hl                 ; preserve buffer pointer
+                ld a,@adcrd
+                rst $28
+                ld e,l
+                ld d,h
+                pop hl                  ; restore buffer pointer
+
+                push de                 ; preserve reading
+                call word_to_decimal    ; convert to decimal
+                ld (hl),ascii_space
+                inc hl
+                ld (hl),'('
+                inc hl
+                pop de                  ; restore reading
+
+                ; display reading as a percentage
+                ; by computing p = 100*r/1024
+                ; (reading is in DE)
+                push bc                 ; preserve port counter
+                push hl                 ; preserve buffer pointer
+                ld bc,100
+                ld a,@mm16x16
+                rst $28                 ; DEHL = 100*reading
+                ; divide by 1024 by shifting right twice and 
+                ; then dropping the least significant byte
+                ld b,2
+handle_adc1_div1024:
+                srl d
+                rr e
+                rr h
+                rr l
+                djnz handle_adc1_div1024
+                ; transfer percentage to DE
+                ld d,e
+                ld e,h
+                pop hl                  ; restore buffer pointer
+                pop bc                  ; restore port counter
+
+                call word_to_decimal    ; convert percentage to decimal
+                ld (hl),'%'
+                inc hl
+                ld (hl),')'
+                inc hl
+                ld (hl),ascii_lf
+                inc hl
+                ld (hl),0
+
+                ld hl,line_buffer
+                ld a,@cputs
+                rst $28
+                ret
+
+handle_adc1_usage:
+                ld hl,err_usage
+                ld a,@cputs
+                rst $28
+                ld hl,err_adc1
+                ld a,@cputs
+                rst $28
+                ret
+
         ;---------------------------------------------------------------
         ; Command Handler: cls, clear
         ;---------------------------------------------------------------
@@ -595,7 +784,7 @@ handle_uptime_nopad_hs:
                 call byte_to_decimal
                 ld (hl),ascii_lf
                 inc hl
-                
+
                 ; null-terminate the buffer
                 ld (hl),0
                 
@@ -669,6 +858,29 @@ handle_uptime_ticks_next:
                 pop ix
                 ret
 
+        ;---------------------------------------------------------------
+        ; Command Handler: call
+        ;---------------------------------------------------------------
+handle_call:
+                ; validate that there is exactly one arg
+                ld a,(argc)
+                cp 2                    ; command + arg
+                jr nz,handle_call_usage 
+
+                ; parse and validate address
+                ld hl,(argv+2)          ; HL -> address arg
+                call parse_hex
+                jr c,handle_call_usage
+                jp (hl)
+
+handle_call_usage:
+                ld hl,err_usage
+                ld a,@cputs
+                rst $28
+                ld hl,err_call
+                ld a,@cputs
+                rst $28
+                ret
 
         ;---------------------------------------------------------------
         ; Command Handler: fill
@@ -687,13 +899,8 @@ handle_fill:
                 
                 ; parse and validate octet arg
                 ld hl,(argv+4)          ; HL -> octet arg
-                call parse_hex
+                call parse_hex8
                 jr c,handle_fill_usage
-                
-                ; validate no more than eight significant bits in octet arg
-                ld a,h
-                or a
-                jr nz,handle_fill_usage
                 ld c,l
 
                 ; parse and validate count arg
@@ -728,16 +935,84 @@ handle_fill_usage:
                 rst $28
                 ret
 
+        ;---------------------------------------------------------------
+        ; Command Handler: in
+        ;---------------------------------------------------------------
+handle_in:
+                ld a,(argc)
+                cp 2
+                jr nz,handle_in_usage
+
+                ld hl,(argv+2)
+                call parse_hex8
+                jr c,handle_in_usage
+                ld c,l
+
+                ld hl,line_buffer
+                call hex_octet
+                ld (hl),':'
+                inc hl
+                ld (hl),ascii_space
+                inc hl
+
+                in a,(c)
+                ld e,a
+                call hex_octet
+                ld (hl),ascii_lf
+                inc hl
+                ld (hl),0
+                
+                ld hl,line_buffer
+                ld a,@cputs
+                rst $28
+
+                ret
+
+handle_in_usage:
+                ld hl,err_usage
+                ld a,@cputs
+                rst $28
+                ld hl,err_in
+                ld a,@cputs
+                rst $28
+                ret
+
+
+        ;---------------------------------------------------------------
+        ; Command Handler: out
+        ;---------------------------------------------------------------
+handle_out:
+                ld a,(argc)
+                cp 3
+                jr nz,handle_out_usage
+
+                ld hl,(argv+2)
+                call parse_hex8
+                ld c,l
+                ld hl,(argv+4)
+                call parse_hex8
+                jr c,handle_out_usage
+
+                ld a,l
+                out (c),a
+                ret
+
+handle_out_usage:
+                ld hl,err_usage
+                ld a,@cputs
+                rst $28
+                ld hl,err_out
+                ld a,@cputs
+                rst $28
+                ret
 
         ;---------------------------------------------------------------
         ; Command Handler: peek
         ;---------------------------------------------------------------
 handle_peek:
                 ld a,(argc)
-                or a
-                jr z,handle_peek_usage
-
-handle_peek_addr:
+                cp 2
+                jr nz,handle_peek_usage
                 ld hl,(argv+2)
                 call parse_hex
                 jr c,handle_peek_usage
@@ -783,12 +1058,8 @@ handle_poke_check:
                 or h
                 jr z,handle_poke_begin
                 ; validate argument
-                call parse_hex
+                call parse_hex8
                 jr c,handle_poke_usage
-                ; must be no more than 8 signficant bits
-                ld a,h
-                or a
-                jr nz,handle_poke_usage
                 jr handle_poke_check    ; go check next arg
 
 handle_poke_begin:
@@ -807,7 +1078,7 @@ handle_poke_next:
                 or h
                 jr z,handle_poke_done
                 ; convert arg to byte in A
-                call parse_hex
+                call parse_hex8
                 ld a,l
                 pop hl                  ; recover target address
                 ld (hl),a               ; store arg as a byte
@@ -824,6 +1095,88 @@ handle_poke_usage:
                 ld a,@cputs
                 rst $28
                 ld hl,err_poke
+                ld a,@cputs
+                rst $28
+                ret
+
+handle_setrtc:
+                ld a,@rtcosf
+                rst $28
+
+                ld hl,rtc_date
+                ld a,@rtcwdt
+                rst $28
+                ld hl,rtc_time
+                ld a,@rtcwtm
+                rst $28
+                ret
+
+rtc_date:       db "2022-04-09 Sat",0
+rtc_time:       db "18:34:00",0
+
+
+handle_date:
+                ld hl,line_buffer
+                ld a,@rtcrdt
+                rst $28
+                ld (hl),ascii_lf
+                inc hl
+                ld (hl),0
+                ld hl,line_buffer
+                ld a,@cputs
+                rst $28
+                ret
+
+handle_time:
+                ld hl,line_buffer
+                ld a,@rtcrtm
+                rst $28
+                ld (hl),ascii_lf
+                inc hl
+                ld (hl),0
+                ld hl,line_buffer
+                ld a,@cputs
+                rst $28
+                ret
+
+handle_temp:
+                ld a,@rtctcv
+                rst $28
+                ld c,l
+                ld e,h
+                ld hl,line_buffer
+                call byte_to_decimal
+                ld (hl),'.'
+                inc hl
+                ex de,hl
+                rlc c
+                rlc c
+                sla c
+                ld b,0
+                ld hl,fraction
+                add hl,bc
+                ld c,(hl)
+                inc hl
+                ld h,(hl)
+                ld l,c
+handle_temp_fraction:
+                ld a,(hl)
+                or a
+                jr z,handle_temp_units
+                ld (de),a
+                inc de
+                inc hl
+                jr handle_temp_fraction
+handle_temp_units:
+                ex de,hl
+                ld (hl),' '
+                inc hl
+                ld (hl),'C'
+                inc hl
+                ld (hl),ascii_lf
+                inc hl
+                ld (hl),0
+                ld hl,line_buffer
                 ld a,@cputs
                 rst $28
                 ret
@@ -956,6 +1309,26 @@ hex_octet_letter2:
                 ld (hl),a
                 inc hl
                 pop bc
+                ret
+
+
+        ;---------------------------------------------------------------
+        ; parse_hex8:
+        ; Parses an ASCII hexadecimal string to a 8-bit value.
+        ;
+        ; On entry:
+        ;       HL = pointer to null-teerminated string
+        ;
+        ; On return:
+        ;       Flag C indicates error
+        ;       L = converted value (if flag NC)
+        ;       
+parse_hex8:
+                call parse_hex
+                ld a,h
+                or a
+                ret z
+                scf
                 ret
 
 
@@ -1147,33 +1520,67 @@ word_to_decimal_30:
                 pop bc
                 ret
 
+f_zero          db "0",0
+f_quarter       db "25",0
+f_half          db "5",0
+f_3quarter      db "75",0
+
+fraction:       dw f_zero
+                dw f_quarter
+                dw f_half
+                dw f_3quarter
 
 days:           db "d ",0
 
-ready:          db "Ready", ascii_lf, "> ", 0
+ready:          db "Ready",ascii_lf,"> ",0
 
 err_not_found:  db "not found",ascii_lf,0
 err_usage:      db "usage: ",0
+err_adc0:       db "adc0 [<channel 0-7>]",ascii_lf,0
+err_adc1:       db "adc1 [<channel 0-15>]",ascii_lf,0
+err_call:       db "call <address>",ascii_lf,0
 err_fill:       db "fill <address> <octet> <length>",ascii_lf,0
+err_in:         db "in <port>",ascii_lf,0
+err_out:        db "out <port> <octet>",ascii_lf,0
 err_peek:       db "peek <address>",ascii_lf,0
 err_poke:       db "poke <address> <octet> [<octet> ...]",ascii_lf,0
 err_uptime:     db "uptime [-t]",ascii_lf,0
 
 ansi_ed2:       db ascii_esc,"[2J",0
 
+cmd_adc0:       db "adc0",0
+cmd_adc1:       db "adc1",0
+cmd_call:       db "call",0
+cmd_chrono:     db "chrono",0
 cmd_cls:        db "cls",0
 cmd_clear:      db "clear",0
 cmd_fill:       db "fill",0
+cmd_in          db "in",0
+cmd_out         db "out",0
 cmd_peek:       db "peek",0
 cmd_poke:       db "poke",0
+cmd_rtc:        db "setrtc",0
+cmd_date:       db "date",0
+cmd_time:       db "time",0
+cmd_temp:       db "temp",0
 cmd_uptime:     db "uptime",0
 
 cmdtab:
+                dw cmd_adc0,handle_adc0
+                dw cmd_adc1,handle_adc1
+                dw cmd_call,handle_call
+                dw cmd_chrono,chrono
                 dw cmd_cls,handle_cls
                 dw cmd_clear,handle_cls
+                dw cmd_date,handle_date
                 dw cmd_fill,handle_fill
+                dw cmd_in,handle_in
+                dw cmd_out,handle_out
                 dw cmd_peek,handle_peek
                 dw cmd_poke,handle_poke
+                dw cmd_rtc,handle_setrtc
+                dw cmd_temp,handle_temp
+                dw cmd_time,handle_time
                 dw cmd_uptime,handle_uptime
                 dw 0
 

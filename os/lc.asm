@@ -266,7 +266,7 @@ lc_ddwrite:
         ;       A = 8-bit value to display
         ;
         ; On return:
-        ;       AF, BC, E destroyed
+        ;       AF, BC destroyed
         ;
 lc_phex8:
                 ld b,a
@@ -655,4 +655,4 @@ lcpd32_30:
                 pop bc
                 ret
 
-                end
+                .end

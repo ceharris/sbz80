@@ -11,12 +11,11 @@ buf_size        .equ 2*num_digits + 4
 		.org 0
 		ld sp,0
 
-                ; signed negative, exact fit, decimal point at 2
-                ld b,10000111b
-                ld c,01010000b
-                ld de,0
-                ld hl,0
-                call l7pd32               
+                ; unsigned 8-bit, zero padded, digits 3..2 with decimal point
+                ld c,00000010b
+                ld b,10000011b
+                ld l,9
+                call l7pd8               
 
                 ifdef FINISHED
                 ; unsigned, exact fit

@@ -26,6 +26,13 @@
 
                 .cseg
 init::
+                ld de,0
+init_wait:
+                dec de
+                ld a,e
+                or d
+                jr nz,init_wait
+
                 ld a,mode_bootstrap
                 out (mode_port),a
 

@@ -62,16 +62,16 @@ sbrxt::         ds 2                    ; rx buffer tail pointer
 
 conidl::        ds 2                    ; consin idle callback
 
-                .org $100
-consin::        ds consin_size
-
-                .org $5c0
+                .org $c0
 satxbf::        ds sio_a_tx_size        ; sio A tx buffer
 
-                .org $600
+                .org $100
 sarxbf::        ds sio_rx_size          ; sio A rx buffer
 
-                .org $700
+                .org $200
+consin::        ds consin_size
+
+                .org $300
 svctab::
 svc_table:
         ; console functions must be first in the table
@@ -130,6 +130,10 @@ _md3210         dw d3210
                 .extern m16x8
 _mm16x8         dw m16x8
 @mm16x8         .equ (_mm16x8 - svc_table)/2
+
+                .extern m16x16
+_mm16x16        dw m16x16
+@mm16x16        .equ (_mm16x16 - svc_table)/2
 
                 .extern kiread
 _kiread         dw kiread
@@ -222,5 +226,37 @@ _tkrd32         dw tkrd32
                 .extern tkrdut
 _tkrdut         dw tkrdut
 @tkrdut         .equ (_tkrdut - svc_table)/2
+
+                .extern adcrd
+_adcrd          dw adcrd
+@adcrd          .equ (_adcrd - svc_table)/2
+
+                .extern rtcrd
+_rtcrd          dw rtcrd
+@rtcrd          .equ (_rtcrd - svc_table)/2
+
+                .extern rtcosf
+_rtcosf         dw rtcosf
+@rtcosf         .equ (_rtcosf - svc_table)/2
+
+                .extern rtctcv
+_rtctcv         dw rtctcv
+@rtctcv         .equ (_rtctcv - svc_table)/2
+
+                .extern rtcrdt
+_rtcrdt         dw rtcrdt
+@rtcrdt         .equ (_rtcrdt - svc_table)/2
+
+                .extern rtcrtm
+_rtcrtm         dw rtcrtm
+@rtcrtm         .equ (_rtcrtm - svc_table)/2
+
+                .extern rtcwdt
+_rtcwdt         dw rtcwdt
+@rtcwdt         .equ (_rtcwdt - svc_table)/2
+
+                .extern rtcwtm
+_rtcwtm         dw rtcwtm
+@rtcwtm         .equ (_rtcwtm - svc_table)/2
 
                 .end
