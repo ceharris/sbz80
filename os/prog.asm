@@ -493,6 +493,346 @@ execute:
 
 
         ;---------------------------------------------------------------
+        ; hexdump:
+        ; Dump a 256-byte section of memory to the console in hexadecimal 
+        ; and ascii forms.
+        ;
+        ; On entry:
+        ;       HL = starting address
+        ;
+hexdump:
+                ld d,h
+                ld e,l
+                ld b,16
+hexdump_next:
+                ld c,b
+                push de
+                ld hl,line_buffer
+
+                ld a,d
+                call hex_octet
+                ld a,e
+                call hex_octet
+                ld (hl),':'
+                inc hl
+                ld (hl),ascii_space
+                inc hl
+
+                ld b,16
+hexdump_next_hex:
+                ld a,(de)
+                call hex_octet
+                ld (hl),ascii_space
+                inc hl
+                ld a,b
+                cp 16-7
+                jr nz,hexdump_next_hex_loop
+                ld (hl),ascii_space
+                inc hl
+hexdump_next_hex_loop:
+                inc de
+                djnz hexdump_next_hex
+                pop de
+
+                ld (hl),ascii_space
+                inc hl
+                ld b,16
+hexdump_next_ascii:
+                ld a,(de)
+                cp ascii_space
+                jr c,hexdump_next_ascii_dot
+                cp ascii_del
+                jr nc,hexdump_next_ascii_dot
+                ld (hl),a
+                jr hexdump_next_ascii_loop
+
+hexdump_next_ascii_dot:
+                ld (hl),'.'
+
+hexdump_next_ascii_loop:
+                inc hl
+                ld a,b
+                cp 16-7
+                jr nz,hexdump_next_ascii_no_pad
+                ld (hl),ascii_space
+                inc hl
+hexdump_next_ascii_no_pad:
+                inc de
+                djnz hexdump_next_ascii
+
+                ld b,c
+
+                ld (hl),ascii_lf
+                inc hl
+                ld (hl),0
+                ld hl,line_buffer
+                ld a,@cputs
+                rst $28
+
+                djnz hexdump_next
+                ret
+
+
+        ;---------------------------------------------------------------
+        ; hex_octet:
+        ; Dump a octet to the console in hexadecimal form.
+        ; forms.
+        ;
+        ; On entry:
+        ;       C = octet to dump
+        ; 
+        ; On return:
+        ;       HL modified
+        ;
+hex_octet:
+                push bc
+                ld c,a
+                rrca
+                rrca
+                rrca
+                rrca
+                and $0f
+                cp 10
+                jr nc,hex_octet_letter1
+                add a,'0'
+                ld (hl),a
+                jr hex_octet_lower
+
+hex_octet_letter1:
+                add a,'a'-10
+                ld (hl),a
+
+hex_octet_lower:
+                inc hl
+                ld a,c
+                and $0f
+                cp 10
+                jr nc,hex_octet_letter2
+                add a,'0'
+                ld (hl),a
+                inc hl
+                pop bc
+                ret
+
+hex_octet_letter2:
+                add a,'a'-10
+                ld (hl),a
+                inc hl
+                pop bc
+                ret
+
+
+        ;---------------------------------------------------------------
+        ; parse_hex8:
+        ; Parses an ASCII hexadecimal string to a 8-bit value.
+        ;
+        ; On entry:
+        ;       HL = pointer to null-teerminated string
+        ;
+        ; On return:
+        ;       Flag C indicates error
+        ;       L = converted value (if flag NC)
+        ;       
+parse_hex8:
+                call parse_hex
+                ld a,h
+                or a
+                ret z
+                scf
+                ret
+
+
+        ;---------------------------------------------------------------
+        ; parse_hex:
+        ; Parses an ASCII hexadecimal string to a 16-bit value.
+        ;
+        ; On entry:
+        ;       HL = pointer to null-teerminated string
+        ;
+        ; On return:
+        ;       Flag C indicates error
+        ;       HL = converted value (if flag NC)
+        ;       
+parse_hex:
+                push bc
+                push de
+                ex de,hl                ; DE = input string pointer
+                ld hl,0                 ; HL = initial value of conversion
+parse_hex_next:
+                ld a,(de)               ; get next input char
+                inc de
+                or a                    ; is it the null-terminator?
+                jr z,parse_hex_done     ; yep...
+                cp '0'
+                jr c,parse_hex_done     ; return with C flag if less than '0'
+                cp '9'+1
+                jr c,parse_hex_digit    ; go convert if between '0' and '9'
+                cp 'A'                
+                jr c,parse_hex_done     ; return with C flag if less than 'A' 
+                cp 'F'+1
+                jr c,parse_hex_letter   ; go convert if between 'A' and 'F'
+                cp 'a'
+                jr c,parse_hex_done     ; return with C flag if less than 'a'
+                cp 'f'+1
+                jr c,parse_hex_letter   ; go convert if between 'a' and 'f'
+                scf                     ; it's greater than 'f'
+                jr parse_hex_done       ; go return with C flag
+parse_hex_letter:
+                and ~$20                ; convert to upper case
+                sub 'A'-10              ; convert to binary value in [10..15]
+                jr parse_hex_fold
+parse_hex_digit:
+                sub '0'                 ; convert to binary value in [0..9]
+parse_hex_fold:
+                ld c,a                  ; preserve converted value
+                ld a,l                  ; A = LSB of current conversion
+                ld b,4                  ; will shift left 4 bits
+                or a                    ; clear carry
+parse_hex_multiply:
+                rla                     ; shift LSB 1 bit to the left
+                rl h                    ; shift MSB 1 bit to the left
+                djnz parse_hex_multiply ; until all four bits shifted
+                or c                    ; include bits of converted char
+                ld l,a                  ; save new LSB
+                jr parse_hex_next       ; go convert next char
+parse_hex_done:
+                pop de
+                pop bc
+                ret
+
+
+        ;---------------------------------------------------------------
+        ; parse_dec:
+        ; Parses an ASCII decimal string to a 16-bit value.
+        ;
+        ; On entry:
+        ;       HL = pointer to null-terminated string
+        ;
+        ; On return:
+        ;       C flag indicates parse error
+        ;       HL = converted value (if NC flag)  
+        ;
+parse_dec:
+                push bc
+                push de
+                ex de,hl                ; DE = input string pointer
+                ld hl,0                 ; HL = initial value of conversion
+parse_dec_next:
+                ld a,(de)               ; get next input character
+                inc de
+                or a
+                jr z,parse_dec_done
+                cp '0'
+                jr c,parse_dec_done     ; return with C flag if less than '0'
+                cp '9'+1
+                jr c,parse_dec_digit    ; convert digit '0'..'9'
+                scf                     ; it's greater than '9'
+                jr parse_dec_done       ; return with C flag
+parse_dec_digit:
+                sub '0'                 ; convert to value in [0..9]
+                ld c,a                  ; preserve converted value
+
+                push de                 ; preserve input pointer
+                ; set DE = conversion value, HL = input pointer
+                ex de,hl
+                ld a,10                 ; multiply by 10
+                ld b,8
+                ld hl,0
+parse_dec_digit_10:
+                add hl,hl
+                rlca
+                jr nc,parse_dec_digit_20
+                add hl,de
+parse_dec_digit_20:
+                djnz parse_dec_digit_10
+                pop de                  ; recover input pointer
+                ; include last converted digit value
+                ld a,l
+                add a,c                 ; add in saved digit value
+                ld l,a
+                ld a,h
+                adc a,0
+                ld h,a
+                jr parse_dec_next
+parse_dec_done:
+                pop de
+                pop bc
+                ret
+
+
+        ;---------------------------------------------------------------
+        ; byte_to_decimal:
+        ; Convert an 8-bit value to ASCII decimal.
+        ;
+        ; On entry:
+        ;       E = value to convert
+        ;       HL = buffer to receive ASCII decimal digits
+        ;
+        ; On return:
+        ;       DE = 0
+        ;       HL = HL' + length of ASCII digit string
+        ;
+byte_to_decimal:
+                ld d,0
+                ; NOTE: falls through
+
+
+        ;---------------------------------------------------------------
+        ; word_to_decimal:
+        ; Convert a 16-bit value to ASCII decimal.
+        ;
+        ; On entry:
+        ;       DE = value to convert
+        ;       HL = buffer to receive ASCII decimal digits
+        ;
+        ; On return:
+        ;       DE = 0
+        ;       HL = HL' + length of ASCII digit string
+        ;
+word_to_decimal:
+                ex de,hl                ; HL = value, DE = buffer pointer
+                push bc
+                push ix
+                ld ix,-base10_bufsize
+                add ix,sp
+                ld sp,ix
+                ld ix,base10_bufsize
+                add ix,sp
+
+                ; null terminate the buffer
+                xor a
+                dec ix
+                ld (ix),a
+word_to_decimal_10:
+                ; divide HL by 10
+                ld a,@md1610
+                rst $28
+                add a,'0'               ; convert to ASCII decimal
+                dec ix          
+                ld (ix),a               ; store the digit
+
+                ; is quotient now zero?
+                ld a,l                  
+                or h
+                jr nz,word_to_decimal_10
+
+                ex de,hl                ; HL = buffer pointer, DE = 0
+word_to_decimal_20:
+                ld a,(ix)               ; get digit or terminator from buffer
+                inc ix
+                or a
+                jr z,word_to_decimal_30 ; go if null terminator
+                ld (hl),a               ; store the digit
+                inc hl                  ; next buffer position
+                jr word_to_decimal_20
+word_to_decimal_30:
+                ld sp,ix
+                pop ix
+                pop bc
+                ret
+
+
+        ;---------------------------------------------------------------
         ; Command Handler: adc0
         ;---------------------------------------------------------------
 handle_adc0:
@@ -692,171 +1032,6 @@ handle_cls:
                 rst $28
                 ret
 
-        ;---------------------------------------------------------------
-        ; Command Handler: uptime
-        ;---------------------------------------------------------------
-handle_uptime:
-                ld a,(argc)
-                cp 1
-                jr z,handle_uptime_formatted
-                ld hl,(argv+2)
-                ld a,(hl)
-                cp '-'
-                jr nz,handle_uptime_usage
-                inc hl
-                ld a,(hl)
-                cp 't'
-                jr nz,handle_uptime_usage
-                inc hl
-                ld a,(hl)
-                or a
-                jr nz,handle_uptime_usage
-                jr handle_uptime_ticks
-
-handle_uptime_usage:
-                ld hl,err_usage
-                ld a,@cputs
-                rst $28
-                ld hl,err_uptime
-                ld a,@cputs
-                rst $28
-                ret
-
-handle_uptime_formatted:
-                ld a,@tkrdut
-                rst $28
-
-                ld hl,line_buffer
-
-                ; convert days to decimal and delimit
-                ld e,(iy+0)
-                ld d,(iy+1)
-                call word_to_decimal
-                ld (hl),'d'
-                inc hl
-                ld (hl),ascii_space
-                inc hl
-
-                ; convert hours to decimal and delimit
-                ld e,(iy+2)
-                ld a,e
-                cp 10
-                jr nc,handle_uptime_nopad_hh
-                ld (hl),'0'
-                inc hl
-handle_uptime_nopad_hh:
-                call byte_to_decimal
-                ld (hl),':'
-                inc hl
-
-                ; convert minutes to decimal and delimit
-                ld e,(iy+3)
-                ld a,e
-                cp 10
-                jr nc,handle_uptime_nopad_mm
-                ld (hl),'0'
-                inc hl
-handle_uptime_nopad_mm:
-                call byte_to_decimal
-                ld (hl),':'
-                inc hl
-
-                ; convert seconds to decimal and delimit
-                ld e,(iy+4)
-                ld a,e
-                cp 10
-                jr nc,handle_uptime_nopad_ss
-                ld (hl),'0'
-                inc hl
-handle_uptime_nopad_ss:
-                call byte_to_decimal
-                ld (hl),'.'
-                inc hl
-
-                ; convert hundredths to decimal
-                ld e,(iy+5)
-                ld a,e
-                cp 10
-                jr nc,handle_uptime_nopad_hs
-                ld (hl),'0'
-                inc hl
-handle_uptime_nopad_hs:
-                call byte_to_decimal
-                ld (hl),ascii_lf
-                inc hl
-
-                ; null-terminate the buffer
-                ld (hl),0
-                
-                ld hl,line_buffer
-                ld a,@cputs
-                rst $28
-                ret
-
-handle_uptime_ticks:
-                ; setup frame from stack
-                push ix
-                ld ix,-base10_bufsize
-                add ix,sp
-                ld sp,ix
-                ld ix,base10_bufsize
-                add ix,sp
-
-                dec ix
-                ld (ix),0               ; null terminate the buffer
-                dec ix
-                ld (ix),ascii_lf        ; add newline at end
-
-                ; read the tick counter into DEHL
-                ld a,@tkrd32
-                rst $28       
-
-                ; divide DEHL by 10 to get hundredths
-                ld a,@md3210
-                rst $28
-                add '0'                 ; convert remainder to ASCII digit
-                dec ix
-                ld (ix),a               ; store in buffer
-
-                ; divide DEHL by 10 to get tenths
-                ld a,@md3210
-                rst $28
-                add '0'                 ; convert remainder to ASCII digit
-                dec ix
-                ld (ix),a               ; store in buffer
-
-                dec ix
-                ld (ix),'.'             ; insert the decimal point
-
-handle_uptime_ticks_next:
-                ; divide DEHL by 10 to get next digit
-                ld a,@md3210
-                rst $28
-                add '0'                 ; convert remainder to ASCII digit
-                dec ix
-                ld (ix),a               ; store in buffer
-
-                ; is the quotient now zero?
-                ld a,l
-                or h
-                jr nz,handle_uptime_ticks_next
-                or e
-                jr nz,handle_uptime_ticks_next
-                or d
-                jr nz,handle_uptime_ticks_next
-
-                ; display the result
-                push ix
-                pop hl
-                ld a,@cputs
-                rst $28
-
-                ; remove frame from stack
-                ld ix,base10_bufsize
-                add ix,sp
-                ld sp,ix
-                pop ix
-                ret
 
         ;---------------------------------------------------------------
         ; Command Handler: call
@@ -1181,306 +1356,109 @@ handle_temp_units:
                 rst $28
                 ret
 
-
         ;---------------------------------------------------------------
-        ; hexdump:
-        ; Dump a 256-byte section of memory to the console in hexadecimal 
-        ; and ascii forms.
-        ;
-        ; On entry:
-        ;       HL = starting address
-        ;
-hexdump:
-                ld d,h
-                ld e,l
-                ld b,16
-hexdump_next:
-                ld c,b
-                push de
+        ; Command Handler: uptime
+        ;---------------------------------------------------------------
+handle_uptime:
+                ld a,(argc)
+                cp 1
+                jr z,handle_uptime_formatted
+                ld hl,(argv+2)
+                ld a,(hl)
+                cp '-'
+                jr nz,handle_uptime_usage
+                inc hl
+                ld a,(hl)
+                cp 't'
+                jr nz,handle_uptime_usage
+                inc hl
+                ld a,(hl)
+                or a
+                jr nz,handle_uptime_usage
+                jr handle_uptime_ticks
+
+handle_uptime_usage:
+                ld hl,err_usage
+                ld a,@cputs
+                rst $28
+                ld hl,err_uptime
+                ld a,@cputs
+                rst $28
+                ret
+
+handle_uptime_formatted:
+                ld a,@tkrdut
+                rst $28
+
                 ld hl,line_buffer
 
-                ld a,d
-                call hex_octet
+                ; convert days to decimal and delimit
+                ld e,(iy+0)
+                ld d,(iy+1)
+                call word_to_decimal
+                ld (hl),'d'
+                inc hl
+                ld (hl),ascii_space
+                inc hl
+
+                ; convert hours to decimal and delimit
+                ld e,(iy+2)
                 ld a,e
-                call hex_octet
+                cp 10
+                jr nc,handle_uptime_nopad_hh
+                ld (hl),'0'
+                inc hl
+handle_uptime_nopad_hh:
+                call byte_to_decimal
                 ld (hl),':'
                 inc hl
-                ld (hl),ascii_space
+
+                ; convert minutes to decimal and delimit
+                ld e,(iy+3)
+                ld a,e
+                cp 10
+                jr nc,handle_uptime_nopad_mm
+                ld (hl),'0'
+                inc hl
+handle_uptime_nopad_mm:
+                call byte_to_decimal
+                ld (hl),':'
                 inc hl
 
-                ld b,16
-hexdump_next_hex:
-                ld a,(de)
-                call hex_octet
-                ld (hl),ascii_space
+                ; convert seconds to decimal and delimit
+                ld e,(iy+4)
+                ld a,e
+                cp 10
+                jr nc,handle_uptime_nopad_ss
+                ld (hl),'0'
                 inc hl
-                ld a,b
-                cp 16-7
-                jr nz,hexdump_next_hex_loop
-                ld (hl),ascii_space
-                inc hl
-hexdump_next_hex_loop:
-                inc de
-                djnz hexdump_next_hex
-                pop de
-
-                ld (hl),ascii_space
-                inc hl
-                ld b,16
-hexdump_next_ascii:
-                ld a,(de)
-                cp ascii_space
-                jr c,hexdump_next_ascii_dot
-                cp ascii_del
-                jr nc,hexdump_next_ascii_dot
-                ld (hl),a
-                jr hexdump_next_ascii_loop
-
-hexdump_next_ascii_dot:
+handle_uptime_nopad_ss:
+                call byte_to_decimal
                 ld (hl),'.'
-
-hexdump_next_ascii_loop:
                 inc hl
-                ld a,b
-                cp 16-7
-                jr nz,hexdump_next_ascii_no_pad
-                ld (hl),ascii_space
+
+                ; convert hundredths to decimal
+                ld e,(iy+5)
+                ld a,e
+                cp 10
+                jr nc,handle_uptime_nopad_hs
+                ld (hl),'0'
                 inc hl
-hexdump_next_ascii_no_pad:
-                inc de
-                djnz hexdump_next_ascii
-
-                ld b,c
-
+handle_uptime_nopad_hs:
+                call byte_to_decimal
                 ld (hl),ascii_lf
                 inc hl
+
+                ; null-terminate the buffer
                 ld (hl),0
+                
                 ld hl,line_buffer
                 ld a,@cputs
                 rst $28
-
-                djnz hexdump_next
                 ret
 
-
-        ;---------------------------------------------------------------
-        ; hex_octet:
-        ; Dump a octet to the console in hexadecimal form.
-        ; forms.
-        ;
-        ; On entry:
-        ;       C = octet to dump
-        ; 
-        ; On return:
-        ;       HL modified
-        ;
-hex_octet:
-                push bc
-                ld c,a
-                rrca
-                rrca
-                rrca
-                rrca
-                and $0f
-                cp 10
-                jr nc,hex_octet_letter1
-                add a,'0'
-                ld (hl),a
-                jr hex_octet_lower
-
-hex_octet_letter1:
-                add a,'a'-10
-                ld (hl),a
-
-hex_octet_lower:
-                inc hl
-                ld a,c
-                and $0f
-                cp 10
-                jr nc,hex_octet_letter2
-                add a,'0'
-                ld (hl),a
-                inc hl
-                pop bc
-                ret
-
-hex_octet_letter2:
-                add a,'a'-10
-                ld (hl),a
-                inc hl
-                pop bc
-                ret
-
-
-        ;---------------------------------------------------------------
-        ; parse_hex8:
-        ; Parses an ASCII hexadecimal string to a 8-bit value.
-        ;
-        ; On entry:
-        ;       HL = pointer to null-teerminated string
-        ;
-        ; On return:
-        ;       Flag C indicates error
-        ;       L = converted value (if flag NC)
-        ;       
-parse_hex8:
-                call parse_hex
-                ld a,h
-                or a
-                ret z
-                scf
-                ret
-
-
-        ;---------------------------------------------------------------
-        ; parse_hex:
-        ; Parses an ASCII hexadecimal string to a 16-bit value.
-        ;
-        ; On entry:
-        ;       HL = pointer to null-teerminated string
-        ;
-        ; On return:
-        ;       Flag C indicates error
-        ;       HL = converted value (if flag NC)
-        ;       
-parse_hex:
-                push bc
-                push de
-                ex de,hl                ; DE = input string pointer
-                ld hl,0                 ; HL = initial value of conversion
-parse_hex_next:
-                ld a,(de)               ; get next input char
-                inc de
-                or a                    ; is it the null-terminator?
-                jr z,parse_hex_done     ; yep...
-                cp '0'
-                jr c,parse_hex_done     ; return with C flag if less than '0'
-                cp '9'+1
-                jr c,parse_hex_digit    ; go convert if between '0' and '9'
-                cp 'A'                
-                jr c,parse_hex_done     ; return with C flag if less than 'A' 
-                cp 'F'+1
-                jr c,parse_hex_letter   ; go convert if between 'A' and 'F'
-                cp 'a'
-                jr c,parse_hex_done     ; return with C flag if less than 'a'
-                cp 'f'+1
-                jr c,parse_hex_letter   ; go convert if between 'a' and 'f'
-                scf                     ; it's greater than 'f'
-                jr parse_hex_done       ; go return with C flag
-parse_hex_letter:
-                and ~$20                ; convert to upper case
-                sub 'A'-10              ; convert to binary value in [10..15]
-                jr parse_hex_fold
-parse_hex_digit:
-                sub '0'                 ; convert to binary value in [0..9]
-parse_hex_fold:
-                ld c,a                  ; preserve converted value
-                ld a,l                  ; A = LSB of current conversion
-                ld b,4                  ; will shift left 4 bits
-                or a                    ; clear carry
-parse_hex_multiply:
-                rla                     ; shift LSB 1 bit to the left
-                rl h                    ; shift MSB 1 bit to the left
-                djnz parse_hex_multiply ; until all four bits shifted
-                or c                    ; include bits of converted char
-                ld l,a                  ; save new LSB
-                jr parse_hex_next       ; go convert next char
-parse_hex_done:
-                pop de
-                pop bc
-                ret
-
-
-        ;---------------------------------------------------------------
-        ; parse_dec:
-        ; Parses an ASCII decimal string to a 16-bit value.
-        ;
-        ; On entry:
-        ;       HL = pointer to null-terminated string
-        ;
-        ; On return:
-        ;       C flag indicates parse error
-        ;       HL = converted value (if NC flag)  
-        ;
-parse_dec:
-                push bc
-                push de
-                ex de,hl                ; DE = input string pointer
-                ld hl,0                 ; HL = initial value of conversion
-parse_dec_next:
-                ld a,(de)               ; get next input character
-                inc de
-                or a
-                jr z,parse_dec_done
-                cp '0'
-                jr c,parse_dec_done     ; return with C flag if less than '0'
-                cp '9'+1
-                jr c,parse_dec_digit    ; convert digit '0'..'9'
-                scf                     ; it's greater than '9'
-                jr parse_dec_done       ; return with C flag
-parse_dec_digit:
-                sub '0'                 ; convert to value in [0..9]
-                ld c,a                  ; preserve converted value
-
-                push de                 ; preserve input pointer
-                ; set DE = conversion value, HL = input pointer
-                ex de,hl
-                ld a,10                 ; multiply by 10
-                ld b,8
-                ld hl,0
-parse_dec_digit_10:
-                add hl,hl
-                rlca
-                jr nc,parse_dec_digit_20
-                add hl,de
-parse_dec_digit_20:
-                djnz parse_dec_digit_10
-                pop de                  ; recover input pointer
-                ; include last converted digit value
-                ld a,l
-                add a,c                 ; add in saved digit value
-                ld l,a
-                ld a,h
-                adc a,0
-                ld h,a
-                jr parse_dec_next
-parse_dec_done:
-                pop de
-                pop bc
-                ret
-
-
-        ;---------------------------------------------------------------
-        ; byte_to_decimal:
-        ; Convert an 8-bit value to ASCII decimal.
-        ;
-        ; On entry:
-        ;       E = value to convert
-        ;       HL = buffer to receive ASCII decimal digits
-        ;
-        ; On return:
-        ;       DE = 0
-        ;       HL = HL' + length of ASCII digit string
-        ;
-byte_to_decimal:
-                ld d,0
-                ; NOTE: falls through
-
-        ;---------------------------------------------------------------
-        ; word_to_decimal:
-        ; Convert a 16-bit value to ASCII decimal.
-        ;
-        ; On entry:
-        ;       DE = value to convert
-        ;       HL = buffer to receive ASCII decimal digits
-        ;
-        ; On return:
-        ;       DE = 0
-        ;       HL = HL' + length of ASCII digit string
-        ;
-word_to_decimal:
-                ex de,hl                ; HL = value, DE = buffer pointer
-                push bc
+handle_uptime_ticks:
+                ; setup frame from stack
                 push ix
                 ld ix,-base10_bufsize
                 add ix,sp
@@ -1488,37 +1466,62 @@ word_to_decimal:
                 ld ix,base10_bufsize
                 add ix,sp
 
-                ; null terminate the buffer
-                xor a
                 dec ix
-                ld (ix),a
-word_to_decimal_10:
-                ; divide HL by 10
-                ld a,@md1610
+                ld (ix),0               ; null terminate the buffer
+                dec ix
+                ld (ix),ascii_lf        ; add newline at end
+
+                ; read the tick counter into DEHL
+                ld a,@tkrd32
+                rst $28       
+
+                ; divide DEHL by 10 to get hundredths
+                ld a,@md3210
                 rst $28
-                add a,'0'               ; convert to ASCII decimal
-                dec ix          
-                ld (ix),a               ; store the digit
+                add '0'                 ; convert remainder to ASCII digit
+                dec ix
+                ld (ix),a               ; store in buffer
 
-                ; is quotient now zero?
-                ld a,l                  
+                ; divide DEHL by 10 to get tenths
+                ld a,@md3210
+                rst $28
+                add '0'                 ; convert remainder to ASCII digit
+                dec ix
+                ld (ix),a               ; store in buffer
+
+                dec ix
+                ld (ix),'.'             ; insert the decimal point
+
+handle_uptime_ticks_next:
+                ; divide DEHL by 10 to get next digit
+                ld a,@md3210
+                rst $28
+                add '0'                 ; convert remainder to ASCII digit
+                dec ix
+                ld (ix),a               ; store in buffer
+
+                ; is the quotient now zero?
+                ld a,l
                 or h
-                jr nz,word_to_decimal_10
+                jr nz,handle_uptime_ticks_next
+                or e
+                jr nz,handle_uptime_ticks_next
+                or d
+                jr nz,handle_uptime_ticks_next
 
-                ex de,hl                ; HL = buffer pointer, DE = 0
-word_to_decimal_20:
-                ld a,(ix)               ; get digit or terminator from buffer
-                inc ix
-                or a
-                jr z,word_to_decimal_30 ; go if null terminator
-                ld (hl),a               ; store the digit
-                inc hl                  ; next buffer position
-                jr word_to_decimal_20
-word_to_decimal_30:
+                ; display the result
+                push ix
+                pop hl
+                ld a,@cputs
+                rst $28
+
+                ; remove frame from stack
+                ld ix,base10_bufsize
+                add ix,sp
                 ld sp,ix
                 pop ix
-                pop bc
                 ret
+
 
 f_zero          db "0",0
 f_quarter       db "25",0
@@ -1569,7 +1572,6 @@ cmdtab:
                 dw cmd_adc0,handle_adc0
                 dw cmd_adc1,handle_adc1
                 dw cmd_call,handle_call
-                dw cmd_chrono,chrono
                 dw cmd_cls,handle_cls
                 dw cmd_clear,handle_cls
                 dw cmd_date,handle_date
