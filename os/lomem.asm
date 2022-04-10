@@ -115,6 +115,10 @@ _consic         dw consic
 _md8x8          dw d8x8
 @md8x8          .equ (_md8x8 - svc_table)/2
 
+                .extern d16x8
+_md16x8          dw d16x8
+@md16x8          .equ (_md16x8 - svc_table)/2
+
                 .extern d32x8
 _md32x8         dw d32x8
 @md32x8         .equ (_md32x8 - svc_table)/2
@@ -242,6 +246,10 @@ _rtcosf         dw rtcosf
                 .extern rtctcv
 _rtctcv         dw rtctcv
 @rtctcv         .equ (_rtctcv - svc_table)/2
+
+                .extern rtcctm
+_rtcctm         dw rtcctm
+@rtcctm         .equ (_rtcctm - svc_table)/2
 
                 .extern rtcrdt
 _rtcrdt         dw rtcrdt

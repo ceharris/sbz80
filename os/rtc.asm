@@ -17,6 +17,7 @@
 
                 .include ports.asm
                 .include spi_defs.asm
+                .include ascii.asm
 
                 .cseg
 
@@ -191,6 +192,94 @@ rtctcv_conv:
                 pop bc
                 ret
 
+        ;---------------------------------------------------------------
+        ; rtcctm:
+        ; Reads the time and date fields of the clock to produce a 
+        ; formatted string similar to the unix `ctime` function.
+        ;
+        ; On entry:
+        ;       HL -> buffer of at least 21 bytes
+        ;
+        ; On return:
+        ;       [HL-21, HL-1] = date string of the form "day mon hh:mm:ss yyyy"
+        ;       HL = HL' + 21
+        ;
+rtcctm::
+                push bc
+                push de
+                ex de,hl                ; DE -> output buffer
+
+                ; use HL as a stack frame pointer
+                ld hl,-rtc_bufsize
+                add hl,sp
+                ld sp,hl
+
+                ; specify address for time fields
+                ld (hl),rtc_read+rtc_tm_second
+                ld b,8                  ; exchange 4 bytes (1 addr + 7 data)
+                ld c,spi_rtc+spi_cpha   ; peripheral address and mode
+                call spi8x              ; read the time and date
+
+                ld bc,-4
+                add hl,bc               ; HL -> day of week
+
+                ld a,(hl)               ; get day of week
+                call rtc_2day           ; convert to day name in buffer
+                ex de,hl
+                ld (hl),ascii_space     ; delimiter
+                inc hl
+                ex de,hl
+
+                inc hl                  ; HL -> month
+                ld a,(hl)               ; get month
+                and $1f                 ; mask off century bit
+                call rtc_2mon           ; convert to month name in buffer
+                ex de,hl
+                ld (hl),ascii_space     ; delimiter
+                inc hl
+                ex de,hl
+
+                dec hl                  ; HL -> day of week
+                dec hl                  ; HL -> hour
+                ld a,(hl)               ; get hour
+                call rtc_2acd           ; convert to decimal in buffer
+                ex de,hl
+                ld (hl),':'             ; delimiter
+                inc hl
+                ex de,hl
+
+                dec hl                  ; HL -> minute
+                ld a,(hl)               ; get minute
+                call rtc_2acd           ; convert to decimal in buffer
+                ex de,hl
+                ld (hl),':'             ; delimiter
+                inc hl
+                ex de,hl
+
+                dec hl                  ; HL -> second
+                ld a,(hl)               ; get second
+                call rtc_2acd           ; convert to decimal in buffer
+                ex de,hl
+                ld (hl),ascii_space     ; delimiter
+                inc hl
+                ld (hl),'2'             ; first century digit
+                inc hl
+                ld (hl),'0'             ; second century digit
+                inc hl
+                ex de,hl
+
+                ld bc,5
+                add hl,bc               ; HL -> year
+                ld a,(hl)               ; get year
+                call rtc_2acd           ; convert to decimal in buffer
+
+                ld hl,rtc_bufsize
+                add hl,sp
+                ld sp,hl
+                ex de,hl
+                pop de
+                pop bc
+                ret
 
         ;---------------------------------------------------------------
         ; rtcrdt:
@@ -246,7 +335,7 @@ rtcrdt::
                 ld a,(hl)
                 call rtc_2acd
                 ex de,hl
-                ld (hl),' '
+                ld (hl),ascii_space
                 inc hl
                 ex de,hl
 
@@ -285,7 +374,7 @@ rtcrtm::
                 add hl,sp
                 ld sp,hl
 
-                ; specify address for date fields
+                ; specify address for time fields
                 ld (hl),rtc_read+rtc_tm_second
                 ld b,4                  ; exchange 4 bytes (1 addr + 3 data)
                 ld c,spi_rtc+spi_cpha   ; peripheral address and mode
@@ -337,6 +426,7 @@ rtc_2acd:
                 ret
 
 rtc_2day:
+                push hl
                 dec a                   ; day 1..6 -> 0..6
                 ld hl,days
                 jr z,rtc_2day_copy
@@ -357,7 +447,36 @@ rtc_2day_next:
                 inc hl
                 inc de
                 djnz rtc_2day_next
+                pop hl
+                ret
 
+rtc_2mon:
+                push hl
+                cp a,$10 
+                jr c,rtc_2mon_no_adjust
+                sub a,$10-10
+rtc_2mon_no_adjust:
+                dec a                   ; month 1..12 -> 0..11
+                ld hl,months
+                jr z,rtc_2mon_copy
+                ld b,a
+                ld c,3
+                xor a
+rtc_2mon_multiply:
+                add a,c
+                djnz rtc_2mon_multiply
+                ld c,a
+                ld b,0
+                add hl,bc
+rtc_2mon_copy:
+                ld b,3
+rtc_2mon_next:
+                ld a,(hl)
+                ld (de),a
+                inc hl
+                inc de
+                djnz rtc_2mon_next
+                pop hl
                 ret
 
         ;---------------------------------------------------------------
@@ -531,7 +650,7 @@ rtc_2dow_no_match:
                 ld a,1
                 ret
 
-days:           db "SunMonTueWedThuFriSat",0
-months:         db "JanFebMarAprMayJunJulAugSepOctNovDec",0
+days:           db "SunMonTueWedThuFriSat"                
+months:         db "JanFebMarAprMayJunJulAugSepOctNovDec"
 
                 .end
