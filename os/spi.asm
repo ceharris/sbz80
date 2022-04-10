@@ -204,6 +204,7 @@ spi8x_10:
                 or sclk
 spi8x_20:
                 out (gpio_port),a
+                and low ~(mosi|sclk)    ; keep bits other than MOSI and SCLK
 
                 ; Select the specified SPI peripheral by address
                 ld d,c                  ; preserve peripheral address
@@ -229,7 +230,7 @@ spi8x_mode0_next:
 spi8x_mode0_bit:
                 rl (hl)                 ; get next transmit bit into carry
                 rra                     ; get bit to send from carry
-                and mosi
+                and mosi                ; keep only the MOSI bit
                 or c                    ; mask in GPIO bits other than SCLK
                 out (gpio_port),a       ; MOSI = output bit, SCLK = low
                 or sclk
@@ -263,10 +264,7 @@ spi8x_mode1_bit:
                 rl (hl)                 ; get next transmit bit into carry
                 rra                     ; get bit to send from carry
                 and mosi
-                set bit_sclk,a          ; set SCLK bit
                 or c                    ; mask in GPIO bits
-                out (gpio_port),a       ; MOSI = output bit, SCLK = high
-                res bit_sclk,a
                 out (gpio_port),a       ; MOSI = output bit, SCLK = low        
                 in a,(gpio_port)        ; read MISO while clock is low
                 rra                     ; carry bit = MISO
