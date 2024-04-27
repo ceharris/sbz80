@@ -1,11 +1,12 @@
 include "machine.h.asm"
-include "stdio.h.asm"
 
 ; NASCOM ROM BASIC Ver 4.7, (C) 1978 Microsoft
 ; Scanned from source published in 80-BUS NEWS from Vol 2, Issue 3
 ; (May-June 1983) to Vol 3, Issue 3 (May-June 1984)
 ; Adapted for the freeware Zilog Macro Assembler 2.10 to produce
 ; the original ROM code (checksum A934H). PA
+; Adapted for z88dk/z80-asm by Carl Harris
+; Some portions copyright Grant Searle
 
 ; GENERAL EQUATES
 
@@ -131,9 +132,9 @@ STARTB:
 	JP      CSTART          ; Jump to initialise
 
 DEINTP:
-        dw   DEINT           ; Get integer -32768 to 32767
+        dw   DEINT              ; Get integer -32768 to 32767
 ABPASSP:
-        dw   ABPASS          ; Return integer in AB
+        dw   ABPASS             ; Return integer in AB
 
 
 CSTART: LD      HL,WRKSPC       ; Start of workspace RAM
@@ -1247,15 +1248,15 @@ UPDATA: LD      (NXTDAT),HL     ; Update DATA pointer
 	RET
 
 
-TSTBRK: call    getcnb
-        ret     z
+TSTBRK: RST     18H             ; read char (non-blocking)
+        RET     Z               ; go if no input
 	CP      CTRLC           ; <Ctrl-C>
 	JR      Z,BRK           ; Yes, break
 	CP      CTRLS           ; Stop scrolling?
 	RET     NZ              ; Other key, ignore
 
 
-STALL:  call    getc            ; Wait for key
+STALL:  RST     10H             ; read char (blocking)
 	CP      CTRLQ           ; Resume scrolling?
 	RET      Z              ; Release the chokehold
 	CP      CTRLC           ; Second break?
@@ -4093,7 +4094,7 @@ ATNTAB: db   9                       ; Table used by ATN
 
 ARET:   RET                     ; A RETurn instruction
 
-GETINP: jp getc             ;input a character
+GETINP: JP      10H             ; read a character (blocking)
 
 CLS:
 	LD      A,CS            ; ASCII Clear screen
@@ -4313,11 +4314,11 @@ JJUMP1:
 	JP      CSTART          ; Go and initialise
 
 MONOUT:
-        push    bc
-        ld      c,a
-        call    putc
-        pop     bc
-        ret
+        PUSH    BC
+        LD      C,A
+        RST     08H
+        POP     BC
+        RET
 
 MONITR:
 	JP      $0000           ; Restart (Normally Monitor Start)

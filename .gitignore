@@ -1,9 +1,15 @@
 .DS_Store
+*.o
 *.rel 
 *.lst 
+*.lis
 *.sym 
+*.map
 *.hex 
+*.ihx
 *.bin 
+*.rom
 *.z80
+sbos*
 .Z80_ports
 os/svcid.asm
