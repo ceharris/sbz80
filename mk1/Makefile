@@ -47,14 +47,14 @@ monitor.o: monitor.asm machine.h.asm convert.h.asm stdio.h.asm
 msbasic.o: msbasic.asm machine.h.asm stdio.h.asm
 
 eeprom: $(IMAGE).rom
-	$(PU) $(PUFLAGS) -w $<
+	$(PU) $(PUFLAGS) -u -P -w $<
 
 erase-eeprom:
-	$(PU) $(PUFLAGS) -E
+	$(PU) $(PUFLAGS) -u -P -E
 
 zero-eeprom: 
 	z88dk-appmake +rom --org $(EEPROM_ORG) --romsize $(EEPROM_SIZE) --output zero.rom
-	$(PU) $(PUFLAGS) -w zero.rom
+	$(PU) $(PUFLAGS) -u -P -w zero.rom
 
 dump-eeprom:
 	$(PU) $(PUFLAGS) -r - | xxd
