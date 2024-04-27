@@ -1,0 +1,5 @@
+__head                          = $FC00 ; const, public, def, , ,
+__size                          = $001F ; const, public, def, , ,
+__tail                          = $FC1F ; const, public, def, , ,
+abpass                          = $FC1C ; addr, local, , usr_asm, , usr.asm:25
+deint                           = $FC19 ; addr, local, , usr_asm, , usr.asm:21
