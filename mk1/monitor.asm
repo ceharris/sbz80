@@ -184,17 +184,7 @@ cmd_jump:
 		push af
 		call next_token
 		call validate_arg
-		ld e,l
-		ld d,h
 		pop af
-		ld hl,PEEK_BUFFER_SIZE
-		add hl,sp
-		ld sp,hl
-		ld hl,IO_BUFFER_SIZE
-		add hl,sp
-		ld sp,hl
-		ld l,e
-		ld h,d
 		cp CMD_CALL
 		jr nz,cmd_jump_10
 		ld de,monitor_return
