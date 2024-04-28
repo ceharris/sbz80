@@ -1,0 +1,7 @@
+
+100 POKE &h8404,0
+120 POKE &h8405,&hfc
+130 PRINT "Hello!"
+140 D=USR(5000)
+150 INPUT "Your name";N$
+160 PRINT N$

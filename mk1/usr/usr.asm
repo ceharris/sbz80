@@ -9,13 +9,13 @@ abpassp defl $200f
 	ld (abpass+1),hl
 
 	call deint
-	ld l,e
-	ld h,d
-	add hl,hl
-	add hl,hl
-	add hl,de
-	ld b,l
-	ld a,h
+	ld c,e
+	ld b,d
+	rst $20
+	ld a,5
+	rst $28
+	ld a,0
+	ld b,a
 	jp abpass
 
 deint:
