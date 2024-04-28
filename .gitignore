@@ -12,4 +12,4 @@
 *.z80
 sbos*
 .Z80_ports
-os/svcid.asm
+mk0/svcid.asm
