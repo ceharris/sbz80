@@ -10,4 +10,3 @@ sio0_base       .equ $c0
 pio0_base       .equ $d0
 ctc0_base       .equ $e0
 spi_addr_port   .equ $f0
-

@@ -70,37 +70,39 @@ l7pd32::
                 push hl
                 push ix
                 push iy
-                ld ix,0                 
+                ld ix,0
                 add ix,sp               ; IX = SP
-                ld iy,-buf_size         
+                ld iy,-buf_size
                 add iy,sp               ; make buffer space
                 ld sp,iy                ; new SP below buffer
-                push ix                 
+                push ix
                 pop iy                  ; IY -> top of buffer
+
+		jp l7pd32_100
 
                 ; get field width
                 ld a,b
                 and $07                 ; isolate leftmost digit number
-                inc a                   
+                inc a
                 ld b,a
                 ld a,c
                 and $07                 ; isolate rightmost digit number
                 sub b
-                neg         
+                neg
                 ld b,a                  ; B = field width
 
                 ; is it a signed input?
                 ld a,c
                 and dflag_signed
                 jr z,l7pd32_10          ; go if not signed
-                
+
                 ; one digit will be used for sign
-                dec b                   
+                dec b
 
                 ; error if remaining field width is zero
                 ld a,b
                 or a
-                jp z,l7pd32_100        
+                jp z,l7pd32_100
 
                 ; is the input negative?
                 ld a,h
@@ -113,10 +115,10 @@ l7pd32::
                 ld l,a
                 ld a,h
                 cpl                     ; complement MSB
-                ld h,a                  
+                ld h,a
                 inc hl                  ; add one for two's complement
-l7pd32_10:      
-                ld a,c                  
+l7pd32_10:
+                ld a,c
                 and $07                 ; isolate rightmost digit
                 ld c,a
                 inc c                   ; digit registers are biased by 1
@@ -133,9 +135,9 @@ l7pd32_20:
                 ld (iy),c               ; digit register address
                 inc c                   ; next register address
                 dec b                   ; update remaining field width
-                
+
                 ; test quotient to see if now zero
-                ld a,l                
+                ld a,l
                 or h
                 jr nz,l7pd32_25         ; go if not zero
                 ld a,e
@@ -151,7 +153,7 @@ l7pd32_25:
 
 l7pd32_30:
                 ; if there is field width remaining, pad it
-                ld a,b          
+                ld a,b
                 or a
                 jr z,l7pd32_50          ; go if no padding needed
 
@@ -197,10 +199,10 @@ l7pd32_70:
                 and $07                 ; isolate leftmmost digit number
                 inc a
                 ld b,a
-                ld a,c                  
+                ld a,c
                 and $07                 ; isolate rightmost digit number
                 sub b
-                neg                 
+                neg
                 ld b,a                  ; B = field width
                 ld a,h                  ; A = register B as it was on entry
                 ld h,b                  ; H = field width (or number of pairs)
@@ -210,7 +212,7 @@ l7pd32_70:
 
                 ; set decimal point position if requested
                 ld a,c                  ; A = register C as it was on entry
-                
+
                 ; get relative position of decimal point
                 rrca
                 rrca
@@ -228,7 +230,7 @@ l7pd32_70:
                 ld a,c
                 inc a                   ; because IX is after the first pair
                 rla                     ; multiply point position by 2
-                cpl                     
+                cpl
                 ld c,a                  ; C = one's complement of offset
                 ld b,$ff                ; BC = one's complement of offset
                 inc bc                  ; BC = two's complement of offset
@@ -236,7 +238,7 @@ l7pd32_70:
 
                 ; set the point bit
                 ld a,(ix+1)             ; get BCD code for point position
-                cp $0f                 
+                cp $0f
                 jr nz,l7pd32_80         ; go if the BCD code is not space
                 ld a,0                  ; replace space with zero
 l7pd32_80:
@@ -246,7 +248,7 @@ l7pd32_90:
                 inc ix
                 inc ix                  ; point to next pair
                 ld a,(ix+1)             ; get BCD code for next position
-                cp $0f                  
+                cp $0f
                 jr nz,l7pd32_120        ; go if BCD code is not a space
                 ld a,0                  ; replace space with zero
                 jr l7pd32_90
@@ -262,30 +264,16 @@ l7pd32_100:
                 dec iy
                 ld (iy),$0b             ; BCD code for `E`
                 dec iy
-                ld (iy),c               ; display in right most digit
-                ld a,(ix+9)             ; get register B as it was on entry
-                ld h,a
-                dec a                   ; decrement to account for `E`
-                or a
-                jr z,l7pd32_120         ; go if no padding needed
-                ld b,a
-l7pd32_110:
-                dec iy
-                ld (iy),$0f             ; BCD code for space
-                dec iy
-                ld (iy),c
-                inc c
-                djnz l7pd32_110
-
+                ld (iy),c               ; display in rightmost digit
 l7pd32_120:
                 ; include a pair to select BCD mode
                 dec iy
                 ld (iy),$ff
                 dec iy
                 ld (iy),$09
-
-                ld b,h                  ; recover field width (number of pairs)
-                inc b                   ; extra pair for BCD mode
+		ld b,2
+;                ld b,h                  ; recover field width (number of pairs)
+;                inc b                   ; extra pair for BCD mode
 
                 call l7_out
 

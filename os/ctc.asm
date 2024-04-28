@@ -3,16 +3,16 @@
         ; CTC: Base timer support
         ;
         ; The CTC provides four channels of timer/counter support.
-        ; Channels 1 and 2 are used to provide the transceiver clocks
-        ; for the SIO. Channel 3 is used for the system timer tick
-        ; (see tk.asm). Channel 0 is unassigned and may be used to
-        ; provide precise timing for user programs.
+        ; Channel 0 is used to provide the transceiver clock for SIO
+	; port B. Channel 3 is used for the system timer tick
+        ; (see tk.asm). Channels 1 and 2 are unassigned and may be used
+	; to provide precise timing for user programs.
         ;---------------------------------------------------------------
 
                 .name ctc
 
                 .extern isrtab
-                
+
                 .include memory.asm
                 .include ports.asm
                 .include isr.asm

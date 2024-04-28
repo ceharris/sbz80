@@ -10,13 +10,14 @@
         ;       D6 - SCLK
         ;       D0 - MISO
         ;
-        ; SPI peripherals are selected by writing an address to a 3-bit
+        ; SPI peripherals are selected by writing an address to a 4-bit
         ; register addressed as the spi_addr_port (see ports.asm). Bits
-        ; D1..D0 of the address are used to select one of four
-        ; peripheral devices. Bit D7 is used as an inhibit bit. If this
-        ; bit is set in the address value, no SPI peripheral device
-        ; will have its chip select (CS) input asserted. This allows
-        ; the GPIO pins used for mosi and SCLK to be used for other
+        ; D2..D0 of the address are used to select one of four
+        ; peripheral devices. Bit D3 is used as a chip select bit. If
+	; this bit is set in the address value, an SPI peripheral device
+        ; will have its chip select (CS) input asserted. If this bit is
+	; not set, no SPI peripheral device will be selected. This allows
+	; the GPIO pins used for MOSI and SCLK to be used for other
         ; purposes without inadvertently signalling an SPI device.
         ;
         ; See spi_defs.asm for SPI peripheral address assignments
@@ -167,7 +168,7 @@ spi16_10:
 
 
         ;---------------------------------------------------------------
-        ; spi8x: 
+        ; spi8x:
         ; Exchanges a block of 8-bit values with a peripheral via SPI.
         ; Bits are exchanged in most signficant bit first order.
         ;
@@ -189,38 +190,39 @@ spi8x::
                 push bc
                 push de
 
-                ; Pull MOSI low and set SCLK according to CPOL before chip 
-                ; select. This allows peripherals that support it to automatically 
-                ; detect the polarity.
-                ld a,c
-                rla
+                ; Pull MOSI low and set SCLK according to CPOL before chip
+                ; select. This allows peripherals that support it to
+                ; automatically detect the polarity.
+                ld a,c			; get options
+                rla			; CY = CPOL bit
                 ld a,(gpout)
-                jr c,spi8x_10
-                and low ~(mosi|sclk)
-                jr spi8x_20                
+                jr c,spi8x_10		; go if CPOL=1
+                and low ~(mosi|sclk)	; MOSI=0 and SCLK=0 when CPOL=0
+                jr spi8x_20
 
 spi8x_10:
-                and low ~mosi
-                or sclk
+                and low ~mosi		; MOSI=0
+                or sclk			; SCLK=1 when CPOL=1
 spi8x_20:
-                out (gpio_port),a
+                out (gpio_port),a	; Pull MOSI and signal SCLK polarity
                 and low ~(mosi|sclk)    ; keep bits other than MOSI and SCLK
 
                 ; Select the specified SPI peripheral by address
-                ld d,c                  ; preserve peripheral address
+                ld d,c                  ; preserve options
                 ld c,a                  ; preserve GPIO output bit mask
-                ld a,d                  ; recover peripheral address
-                and 7                   ; address is only 3 bits
+                ld a,d                  ; recover options
+                and 7                   ; peripheral address is only 3 bits
                 or cs                   ; set chip select bit
                 out (spi_addr_port),a   ; select SPI peripheral
 
-                ld a,d                  ; get option bit mask
-                rla                     ; set carry to CPOL bit
+                ld a,d                  ; recover options
+                rla                     ; CY = CPOL bit
                 jp c,spi8x_mode23       ; CPOL=1 => modes 2 and 3
-                rla                     ; set carry to CPHA bit
-                jp c,spi8x_mode1        ; CPHA=1 => mode 1
 
-                ;-------------------------------------------------------
+		; CPOL=0 => modes 1 and 2
+                rla                     ; CY = CPHA bit
+                jp c,spi8x_mode1        ; CPHA=1 => mode 1
+;-------------------------------------------------------
                 ; SPI mode 0 (CPOL=0, CPHA=0)
                 ;
 spi8x_mode0:
@@ -228,15 +230,16 @@ spi8x_mode0_next:
                 ld d,b                  ; preserve number of bytes
                 ld b,8                  ; transmit and receive 8 bits
 spi8x_mode0_bit:
-                rl (hl)                 ; get next transmit bit into carry
-                rra                     ; get bit to send from carry
+                rl (hl)                 ; CY = next bit to transmit and
+					; (HL) bit 0 = previously received bit
+                rra                     ; A7 (MOSI) = bit to transmit
                 and mosi                ; keep only the MOSI bit
                 or c                    ; mask in GPIO bits other than SCLK
                 out (gpio_port),a       ; MOSI = output bit, SCLK = low
                 or sclk
                 out (gpio_port),a       ; MOSI = output bit, SCLK = high
                 in a,(gpio_port)        ; read MISO
-                rra                     ; carry bit = MISO
+                rra                     ; CY = received bit
 
                 djnz spi8x_mode0_bit
 
@@ -258,16 +261,17 @@ spi8x_mode1_next:
                 ld d,b                  ; preserve number of bytes
                 ld b,8                  ; transmit and receive 8 bits
 spi8x_mode1_bit:
-                ld a,c                  ; get GPIO bits
+                ld a,c                  ; recover GPIO mask
                 set bit_sclk,a          ; set SCLK bit without affecting carry
                 out (gpio_port),a       ; SCLK = high
-                rl (hl)                 ; get next transmit bit into carry
-                rra                     ; get bit to send from carry
-                and mosi
+                rl (hl)                 ; CY = bit to transmit
+					; (HL) bit 0 = previously received bit
+                rra                     ; A7 (MOSI) = bit to transmit
+                and mosi		; nothing but MOSI
                 or c                    ; mask in GPIO bits
-                out (gpio_port),a       ; MOSI = output bit, SCLK = low        
+                out (gpio_port),a       ; MOSI = output bit, SCLK = low
                 in a,(gpio_port)        ; read MISO while clock is low
-                rra                     ; carry bit = MISO
+                rra                     ; CY = received bit
                 djnz spi8x_mode1_bit
 
                 rl (hl)                 ; rotate in last received bit
@@ -291,22 +295,22 @@ spi8x_mode2_next:
                 ld d,b                  ; preserve number of bytes
                 ld b,8                  ; transmit and receive 8 bits
 spi8x_mode2_bit:
-                rl (hl)                 ; get next transmit bit into carry
-                rra                     ; get bit to send from carry
-                and mosi
-                or sclk
+                rl (hl)                 ; CY = bit to transmit
+					; (HL) bit 0 = previously received bit
+                rra                     ; A7 (MOSI) = bit to transmit
+                and mosi		; nothing but MOSI
+                or sclk			;    with SCLK
                 or c                    ; mask in GPIO bits other than SCLK
                 out (gpio_port),a       ; MOSI = output bit, SCLK = high
                 and ~sclk
                 out (gpio_port),a       ; MOSI = output bit, SCLK = low
                 in a,(gpio_port)        ; read MISO
-                rra                     ; carry bit = MISO
+                rra                     ; CY = received bit
                 djnz spi8x_mode2_bit
 
-                ; rotate in last received bit
-                rl (hl)
+                rl (hl)			; rotate in last received bit
 
-                ld a,c
+                ld a,c			; recover GPIO mask
                 or sclk
                 out (gpio_port),a       ; SCLK = high, other GPIO bits unchanged
 
@@ -328,23 +332,22 @@ spi8x_mode3_bit:
                 ld a,c
                 out (gpio_port),a       ; SCLK = low
 
-                ; get next transmit bit into carry
-                rl (hl)
-                rra                     ; get bit to send from carry
-                and mosi
-                or sclk
+                rl (hl)			; CY = bit to transmit
+					; (HL) bit 0 = previously received bit
+                rra                     ; A7 (MOSI) = bit to transmit
+                and mosi		; nothing but MOSI
+                or sclk			; 	with SCLK
                 or c                    ; mask in GPIO bits other than SCLK
                 out (gpio_port),a       ; MOSI = output bit, SCLK = high
                 in a,(gpio_port)        ; read MISO
-                rra                     ; carry bit = MISO
+                rra                     ; CY = received bit
                 djnz spi8x_mode3_bit
+
+                rl (hl) 		; rotate in last received bit
 
                 ld a,c
                 or sclk
                 out (gpio_port),a       ; SCLK = high, other GPIO bits unchanged
-
-                ; rotate in last received bit
-                rl (hl)
 
                 inc hl                  ; next buffer position
                 ld b,d                  ; recover byte count

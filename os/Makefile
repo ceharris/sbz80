@@ -1,7 +1,7 @@
 # Makefile for SBZ80 Operating System Image
  
-CSEG_ADDR=0400
-DSEG_ADDR=2000
+CSEG_ADDR=0200
+DSEG_ADDR=4000
 
 #
 # Linker utility

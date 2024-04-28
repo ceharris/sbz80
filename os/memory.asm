@@ -5,10 +5,10 @@
         ; After system reset, the bootstrap memory mode is automatically
         ; selected by the hardware. In this mode, the ROM is selected for
         ; address $0000..7FFF and RAM is selected for $8000..FFFF. When
-        ; the normal mode is selected, the 32K bank at address $8000 is 
+        ; the normal mode is selected, the 32K bank at address $8000 is
         ; relocated to $0000..FFFF and another 32K bank is addressable
         ; at $8000..FFFF.
-        ; 
+        ;
         ; In the bootstrap mode, the contents of the ROM can be copied
         ; to RAM. After switching to normal mode, execution of the ROM-
         ; based program continues in RAM.
@@ -27,11 +27,16 @@ rom_size                .equ 8192
 
         ; Sizes of low memory structures
         ;
-isrtab_size             .equ 32                 ; Z80 interrupt mode 2 vector table      
+isrtab_size             .equ 32                 ; Z80 interrupt mode 2 vector table
 kiring_size             .equ 16                 ; keyboard input ring
 tkcnt_size              .equ 4                  ; tick counter
-
 consin_size             .equ 256                ; Console input line buffer
 sio_a_tx_size           .equ 64                 ; SIO port A tx buffer size
 sio_rx_size             .equ 256                ; SIO receive buffer size
+
+        ; Locations for buffers
+buf_mem                 .equ rom_size           ; start buffers just past ROM
+consin                  .equ buf_mem+0
+sarxbf                  .equ consin+consin_size
+satxbf                  .equ sarxbf+sio_rx_size
 

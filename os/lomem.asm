@@ -27,7 +27,7 @@ kitail::        ds 2                    ; keyboard ring tail pointer
 kibat::         ds 1                    ; keyboard BAT code
 kiflag::        ds 1                    ; keyboard flags
 kimod::         ds 1                    ; keyboard modifiers
-        
+
         ; GPIO register masks
 gpin::          ds 1                    ; GPIO input port image
 gpout::         ds 1                    ; GPIO output port image
@@ -62,16 +62,7 @@ sbrxt::         ds 2                    ; rx buffer tail pointer
 
 conidl::        ds 2                    ; consin idle callback
 
-                .org $c0
-satxbf::        ds sio_a_tx_size        ; sio A tx buffer
-
                 .org $100
-sarxbf::        ds sio_rx_size          ; sio A rx buffer
-
-                .org $200
-consin::        ds consin_size
-
-                .org $300
 svctab::
 svc_table:
         ; console functions must be first in the table
@@ -235,9 +226,9 @@ _tkrdut         dw tkrdut
 _adcrd          dw adcrd
 @adcrd          .equ (_adcrd - svc_table)/2
 
-                .extern rtcrd
-_rtcrd          dw rtcrd
-@rtcrd          .equ (_rtcrd - svc_table)/2
+                .extern rtcex
+_rtcex          dw rtcex
+@rtcex          .equ (_rtcex - svc_table)/2
 
                 .extern rtcosf
 _rtcosf         dw rtcosf
@@ -266,5 +257,13 @@ _rtcwdt         dw rtcwdt
                 .extern rtcwtm
 _rtcwtm         dw rtcwtm
 @rtcwtm         .equ (_rtcwtm - svc_table)/2
+
+                .extern rtcral
+_rtcral         dw rtcral
+@rtcral         .equ (_rtcral - svc_table)/2
+
+                .extern rtcwal
+_rtcwal         dw rtcwal
+@rtcwal         .equ (_rtcwal - svc_table)/2
 
                 .end

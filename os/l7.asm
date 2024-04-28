@@ -1,12 +1,15 @@
         ;---------------------------------------------------------------
         ; LED 7-segment display module
+	;
+	; In this module, digits are numbered from right to left.
+	; The rightmost digit is 0, making the leftmost digit 7.
         ;---------------------------------------------------------------
 
 		.name l7
 
                 .extern spi16
                 .extern d3210
-
+		.extern gpin
 
                 .include spi_defs.asm
 
@@ -92,7 +95,7 @@ l7_pattern:
                 ld h,a                  ; preserve pattern
                 ld l,1                  ; start with digit 1
                 ld b,num_digits         ; display all digits
-l7_pattern_10:                
+l7_pattern_10:
                 ld e,h                  ; segment bit
                 ld d,l                  ; digit number
                 ld c,spi_l7             ; SPI peripheral address
@@ -100,20 +103,26 @@ l7_pattern_10:
                 inc l                   ; next digit
                 djnz l7_pattern_10      ; loop for all digits
                 ret
-              
+
         ;---------------------------------------------------------------
         ; l7_delay:
         ; Short counter-based delay
         ;
 l7_delay:
                 ld de,$4000
+                ld a,(gpin)             ; get config switch positions
+                rla                     ; put "turbo" switch into carry
+                jr nc,l7_delay_10	; not "turbo"
+
+		; divide delay by 2 if not in "turbo" mode
+		srl d
+		rr e
 l7_delay_10:
                 dec de
                 ld a,e
                 or d
                 jr nz,l7_delay_10
                 ret
-
 
         ;---------------------------------------------------------------
         ; l7ph8:
@@ -125,7 +134,7 @@ l7_delay_10:
         ;           bits represent the digit number (0-7) and the high
         ;           order bit indicates whether the point segment should
         ;           be displayed to the right of the value
-        ; 
+        ;
         ; On return:
         ;       AF destroyed
         ;
@@ -163,7 +172,7 @@ l7ph8::
 
                 ; disable BCD decode
                 dec iy
-                ld (iy),$00 
+                ld (iy),$00
                 dec iy
                 ld (iy),$09
 
@@ -182,7 +191,7 @@ l7ph8::
 
         ;---------------------------------------------------------------
         ; l7ph16:
-        ; Prints a 16-bit hexadecimal value on four digits of the 
+        ; Prints a 16-bit hexadecimal value on four digits of the
         ; display.
         ;
         ; On entry:
@@ -191,7 +200,7 @@ l7ph8::
         ;           bits represent the digit number (0-7) and the high
         ;           order bit indicates whether the point segment should
         ;           be displayed to the right of the value
-        ; 
+        ;
         ; On return:
         ;       AF destroyed
         ;
@@ -243,7 +252,7 @@ l7ph16::
 
                 ; disable BCD decode
                 dec iy
-                ld (iy),$00 
+                ld (iy),$00
                 dec iy
                 ld (iy),$09
 
@@ -262,12 +271,12 @@ l7ph16::
 
         ;---------------------------------------------------------------
         ; l7ph32:
-        ; Prints a 32-bit hexadecimal value on all eight digits of the 
+        ; Prints a 32-bit hexadecimal value on all eight digits of the
         ; display.
         ;
         ; On entry:
         ;       DEHL = value to display
-        ; 
+        ;
         ; On return:
         ;       AF destroyed, C is zero
         ;
@@ -345,7 +354,7 @@ l7ph32::
 
                 ; disable BCD decode
                 dec iy
-                ld (iy),$00 
+                ld (iy),$00
                 dec iy
                 ld (iy),$09
 
@@ -364,14 +373,14 @@ l7ph32::
 
         ;---------------------------------------------------------------
         ; l7_phex4:
-        ; Converts a 4-bit value to 16=bit word representing a display 
+        ; Converts a 4-bit value to 16-bit word representing a display
         ; register address and pattern for a display digit
-        ; 
+        ;
         ; On entry:
         ;       A = 4-bit value to convert
-        ;       C = target display digit in which the lowest 3 bits are 
+        ;       C = target display digit in which the lowest 3 bits are
         ;           used as the digit number and the high order bit
-        ;           indicates whether the point segment should be 
+        ;           indicates whether the point segment should be
         ;           displayed
         ;
         ; On return:
@@ -384,7 +393,7 @@ l7_phex4:
                 and $0f                 ; 4 bits only
 
                 ; get pointer to pattern
-                ld hl,patterns                
+                ld hl,patterns
                 add a,l
                 ld l,a
                 ld a,h
@@ -398,15 +407,15 @@ l7_phex4:
                 rra
                 rrc c
 
-                ; store the pattern                                
+                ; store the pattern
                 dec iy
                 ld (iy),a
 
                 ; compute and store display register address
-                ld a,c                
+                ld a,c
                 and 7                   ; 3 bits only
                 inc a                   ; digits are number 1-8
-                dec iy                  
+                dec iy
                 ld (iy),a
 
                 pop hl

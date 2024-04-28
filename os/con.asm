@@ -4,7 +4,6 @@
 
                 .name con
                 
-                .extern consin
                 .extern conidl
 
                 .extern sagetc

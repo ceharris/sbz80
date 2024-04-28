@@ -2,54 +2,53 @@
         ;---------------------------------------------------------------
         ; Serial I/O Support
         ;
-        ; The system includes the standard Z80 SIO peripheral, which 
+        ; The system includes the standard Z80 SIO peripheral, which
         ; provides two fully independent serial interfaces. The SIO
         ; supports a asynchronous and synchronous modes with a variety
         ; of different protocols. However, this module provides support
         ; only for common asynchronous modes, with a single bit
         ; rate for both the tranmsit and receive directions.
         ;
-        ; Each port may be configured for 5, 6, 7, or 8 bits, with 
+        ; Each port may be configured for 5, 6, 7, or 8 bits, with
         ; 1, 1 1/2, or 2 stop bits, and parity none, even, or odd.
-        ; 
+        ;
         ; Transmit and receive bit rates are derived from the system
         ; clock, operating at either 3.6864 MHz or 7.3728 MHz.
         ;
         ; Port A clock input is provided directly by the system clock.
         ; This provides a bit rate of either 115,200 or 230,400 using
-        ; only the clock divider in the SIO channel. Configuration 
+        ; only the clock divider in the SIO channel. Configuration
         ; switch SW1 is used to select between the two possible speeds.
         ; Selection of the divisor is based on SW1 and SW2 (which
         ; provides the system clock speed).
         ;
-        ;  SW2 SW1   System Clock  Divisor  Port A Bit Rate
-        ;  --- ---   ------------  -------  ---------------
-        ;  OFF OFF     3.6864 MHz       32     115,200 bps
-        ;  OFF ON      3.6864 MHz       16     230,400 bps
-        ;  ON  OFF     7.3728 MHz       64     115,200 bps
-        ;  ON  ON      7.3728 MHz       32     230,400 bps
-        ; 
+        ;  SW1   Serial Clock  Divisor  Port A Bit Rate
+        ;  ---   ------------  -------  ---------------
+        ;  OFF     1.8432 MHz       32      57,600 bps
+        ;  ON      1.8432 MHz       16     115,200 bps
+        ;  OFF     3.6864 MHz       32     115,200 bps
+        ;  ON      3.6864 MHz       16     230,400 bps
+        ;
         ; Port B clock input is provided by the zero count output of
         ; a CTC channel operated in counter mode, and triggered by the
-        ; system clock. This allows the clock rate to vary based on
-        ; the time constant for the channel. The following common bit 
-        ; rates are supported.
+        ; serial clock. This allows the clock rate to vary based on
+        ; the time constant for the channel. The following common bit
+        ; rates are supported, based on the serial clock in use.
         ;
-        ;                      
-        ;      TC    Port B Bit Rate
-        ;      --    ---------------
-        ;       1       115,200 bps
-        ;       2        57,600 bps
-        ;       3        38,400 bps
-        ;       6        19,200 bps
-        ;      12         9,600 bps
-        ;      24         4,800 bps
-        ;      48         2,400 bps
-        ;      96         1,200 bps
+        ;            Port B Bit Rate    Port B Bit Rate
+	;      TC   3.6864 MHz Clock   1.8432 MHz Clock
+        ;      --   ----------------   ----------------
+        ;       1       115,200 bps        57,600 bps
+        ;       2        57,600 bps        28,800 bps
+        ;       3        38,400 bps        19,200 bps
+        ;       6        19,200 bps        9,600 bps
+        ;      12         9,600 bps        4,800 bps
+        ;      24         4,800 bps        2,400 bps
+        ;      48         2,400 bps        1,200 bps
+        ;      96         1,200 bps          600 bps
         ;
-        ; When the system clock is 3.6864 MHz the SIO clock divisor is 
-        ; set to 16; at 7.3738 MHz, the SIO clock divisor is set to 32.
-        ; 
+        ; To derive these rates, the SIO clock divisor is set to 16.
+        ;
         ; SIO port A is a TTL serial interface which is terminated
         ; using an FTDI-type USB cable adapter. SIO port B is configured
         ; as a standard EIA/TIA 232 interface, on a 9-pin male D shell.
@@ -69,8 +68,6 @@
                 .extern satxt
                 .extern sarxh
                 .extern sarxt
-                .extern satxbf
-                .extern sarxbf
                 .extern sbcfg
                 .extern sbwr5
                 .extern sbrr0
@@ -104,14 +101,14 @@ sio_ctc_ctrl    .equ ctc_di+ctc_counter+ctc_falling+ctc_tc+ctc_ctrl
         ; Time constants for the CTC channel used for port B
         ;
 sio_tc_table:
-                db 96                   ;   1,200 bps
-                db 48                   ;   2,400 bps
-                db 24                   ;   4,800 bps
-                db 12                   ;   9,600 bps
-                db 6                    ;  19,200 bps
-                db 3                    ;  38,400 bps
-                db 2                    ;  57,600 bps
-                db 1                    ; 115,200 bps
+                db 96                   ;   1,200 bps / 600 bps
+                db 48                   ;   2,400 bps / 1,200 bps
+                db 24                   ;   4,800 bps / 2,400 bps
+                db 12                   ;   9,600 bps / 4,800 bps
+                db 6                    ;  19,200 bps / 9,600 bps
+                db 3                    ;  38,400 bps / 19,200 bps
+                db 2                    ;  57,600 bps / 28,800 bps
+                db 1                    ; 115,200 bps / 57,600 bps
 
 
         ;---------------------------------------------------------------
@@ -183,20 +180,13 @@ sioini::
                 ld c,sio_clock_x32
                 ld a,(gpin)
                 cpl
-                and $c0
-                jr z,sioini_10          ; SW2=OFF, SW1=OFF => divisor 32
-                cp $c0
-                jr z,sioini_10          ; SW2=ON, SW1=ON => divisor 32
-
-                ld c,sio_clock_x64
-                cp $80                  
-                jr z,sioini_10          ; SW2=ON, SW1=OFF => divisor 64
-                ld c,sio_clock_x16      ; SW2=ON, SW1=ON = divisor 16
-
+                and $40
+                jr z,sioini_10          ; SW1=OFF => divisor 32
+                ld c,sio_clock_x16	; SW1=ON  => divisor 16
 sioini_10:
                 ld a,(sio_rx_8bits>>2)+sio_stop_1bit+sio_parity_none
                 or c                    ; include clock divisor bits
-                
+
                 ; initialize port A
                 ld (sacfg),a
                 ld c,sio_a_command
@@ -209,7 +199,7 @@ sioini_10:
         ;---------------------------------------------------------------
         ; sbinit:
         ; Initializes serial port B.
-        ; 
+        ;
         ; On entry:
         ;       B = speed
         ;         0 = 1,200 bps
@@ -227,7 +217,7 @@ sioini_10:
         ;         D1..D0 - parity (None=00b, Even=01b, Odd=11b)
         ;       DE = pointer to 256-byte receive buffer
         ;       HL = pointer to 256-byte transmit buffer
-        ;       
+        ;
         ; On return:
         ;       AF destroyed
         ;
@@ -280,7 +270,7 @@ sbinit_port:
                 ; configure CTC channel to drive tx/rx clock
                 ld a,sio_ctc_ctrl
                 out (sio_ctc_ch),a      ; send control word
-                ld a,(hl)               
+                ld a,(hl)
                 out (sio_ctc_ch),a      ; send time constant
 
                 pop hl
@@ -510,7 +500,7 @@ sbflsh::
         ;---------------------------------------------------------------
         ; sio_init_port:
         ; Initialize a serial port.
-        ; 
+        ;
         ; On entry:
         ;       A = configuration
         ;         D7..D6 - clock divisor (1=00b, 16=01b, 32=10b, 64=11b)
@@ -518,7 +508,7 @@ sbflsh::
         ;         D3..D2 - stop bits (1=01b, 1.5=10b, 2=11b)
         ;         D1..D0 - parity (None=00b, Even=01b, Odd=11b)
         ;       C = target SIO command port address
-        ;       
+        ;
         ; On return:
         ;       A = WR5 configuration mask
         ;
@@ -540,7 +530,7 @@ sio_init_port:
                 out (c),a
 
                 ; get bits per character into D7..D6
-                ld a,b                
+                ld a,b
                 rlca
                 rlca
                 and $c0
@@ -621,7 +611,7 @@ sioa_txrdy_end:
 sio_a_status:
                 ei
                 push af
-                
+
                 ; read and store RR0 for status bits
                 in a,(sio_a_command)
                 ld (sarr0),a
@@ -632,7 +622,7 @@ sio_a_status:
 
                 pop af
                 reti
-                
+
 
         ;---------------------------------------------------------------
         ; ISR: SIO port A received character available
@@ -743,7 +733,7 @@ sio_b_txrdy_end:
 sio_b_status:
                 ei
                 push af
-                
+
                 ; read and store RR0 for status bits
                 in a,(sio_b_command)
                 ld (sbrr0),a
