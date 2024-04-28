@@ -17,7 +17,7 @@ LDFLAGS=+$(Z88DK_TARGET) -startup=-1 --no-crt -m -create-app -Cz '$(APPMAKE_FLAG
 PU=minipro
 PUFLAGS=--no_id_error -p $(EEPROM_TYPE)
 
-MODULES=lomem.o init.o acia.o stdio.o convert.o monitor.o msbasic.o
+MODULES=lomem.o init.o delay.o acia.o stdio.o convert.o monitor.o msbasic.o
 #MODULES=blink.o
 
 IMAGE=sbos
@@ -29,6 +29,8 @@ all: $(IMAGE).rom
 init.o: init.asm machine.h.asm stdio.h.asm bcd.h.asm
 
 bcd.o: bcd.asm machine.h.asm bcd.h.asm
+
+delay.o: delay.asm machine.h.asm
 
 serial.o: serial.asm machine.h.asm serial.h.asm
 

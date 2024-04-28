@@ -2,11 +2,13 @@
 		#include "stdio.h.asm"
 
 		section CODE_LOMEM
-		extern  init
-		extern  acia_getc
-		extern  acia_getcnb
-		extern  acia_putc
-		extern  acia_isr
+		extern init
+		extern delay
+		extern acia_getc
+		extern acia_getcnb
+		extern acia_flush
+		extern acia_putc
+		extern acia_isr
 
 	;---------------------------------------------------------------
 	; RST $0
@@ -35,7 +37,7 @@
 	;---------------------------------------------------------------
 	; RST $20
 	;
-		ret
+		jp delay
 		align 8
 
 	;---------------------------------------------------------------
@@ -83,3 +85,4 @@ svc_table:
 		dw gets			; 2
 		dw acia_putc		; 3
 		dw puts			; 4
+		dw acia_flush		; 5

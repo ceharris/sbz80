@@ -8,7 +8,10 @@
 		public acia_ioctl
 		public acia_getc
 		public acia_getcnb
+		public acia_flush
 		public acia_putc
+
+		extern delay
 
 ACIA_CTRL       defl ACIA_PORT + 0
 ACIA_DATA       defl ACIA_PORT + 1
@@ -58,6 +61,8 @@ XOFF            defl 0x13
 
 RX_READY	defl 1 << 6
 TX_READY	defl 1 << 7
+
+FLUSH_DELAY	defl 10			; flush delay in milliseconds
 
 
 		section	CODE_USER
@@ -259,6 +264,29 @@ acia_getcnb:
 		or a
 		ret z
 		jp acia_getc
+
+	;---------------------------------------------------------------
+	; acia_flush:
+	; Flushes the input queue, discarding all waiting characters.
+	;
+	; On return:
+	;	A = 0 and Z flag set
+	;
+acia_flush:
+		call acia_getcnb
+		ret z			; go if nothing to flush
+acia_flush_10:
+		call acia_getcnb	; try again
+		jr nz,acia_flush	; go until no input available
+
+		; delay for about FLUSH_DELAY milliseconds
+		push bc
+		ld bc,FLUSH_DELAY		
+		call delay
+		pop bc
+		
+		; go check again
+		jr acia_flush
 
 
 	;---------------------------------------------------------------
