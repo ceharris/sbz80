@@ -18,7 +18,6 @@ PU=minipro
 PUFLAGS=--no_id_error -p $(EEPROM_TYPE)
 
 MODULES=lomem.o init.o delay.o acia.o stdio.o convert.o monitor.o msbasic.o
-#MODULES=blink.o
 
 IMAGE=sbos
 
@@ -71,7 +70,7 @@ $(IMAGE): $(MODULES)
 	$(LD) $(LDFLAGS) -o $@ $(MODULES)
 
 clean:
-	-rm -f *.o *.lis *.sym *.map *.ihx *.bin *.bin_* *.rom
+	-rm -f *.o *.lis *.sym *.map *.ihx *.bin *.bin_* *.rom $(IMAGE)
 
 distclean: clean
 	@-rm -rf .venv
