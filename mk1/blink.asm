@@ -1,8 +1,5 @@
-
 		section	CODE
 		org	$0
-
-#define USE_STACK
 
 gpio_reg	defl	$0
 gpio_p1		defl	$2
