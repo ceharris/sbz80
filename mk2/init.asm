@@ -2,6 +2,7 @@
 		include "ioctl.h.asm"
 
 		public init
+		extern mmu_init
 		extern acia_init
 		extern acia_ioctl
 		extern monitor
@@ -12,19 +13,12 @@
 
 init:
 		di
-		xor 0
-		out (MMU_CTRL_PORT),a
-		ld a,1				; ROM page 1, RAM page 0
-		out (MMU_PAGE_PORT),a
-		ld hl,0
-		ld de,$8000
-		ld bc,$4000
-		ldir
-		ld a,1
-		out (MMU_CTRL_PORT),a
-		ld a,$10			;RAM page 1 (ROM switched out)
-		out (MMU_PAGE_PORT),a
-		
+		ld sp,$8000
+		ld bc,500
+		rst $20
+
+		call mmu_init
+
 		ld sp,WORKSPACE_TOP
 
                 call acia_init
@@ -35,5 +29,4 @@ init:
                 ei
 
 init_10:
-                call monitor
-                jp init
+                jp monitor

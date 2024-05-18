@@ -8,6 +8,7 @@ EEPROM_TYPE=SST29EE020
 EEPROM_SIZE=262144
 
 CODE_ORG=0
+MONITOR_OFFSET=0x20000
 BASIC_OFFSET=0x22000
 
 APPMAKE_FLAGS=--org $(CODE_ORG)
@@ -20,7 +21,8 @@ LDFLAGS=+$(Z88DK_TARGET) -startup=-1 --no-crt -m -create-app -Cz '$(APPMAKE_FLAG
 PU=minipro
 PUFLAGS=--no_id_error -p $(EEPROM_TYPE)
 
-MODULES=lomem.o init.o acia.o stdio.o l7x4.o convert.o delay.o monitor.o msbasic.o
+MODULES=lomem.o init.o mmu.o acia.o stdio.o l7x4.o convert.o delay.o monitor.o msbasic.o
+#MODULES=test.o msbasic.o
 IMAGE=sbos
 
 .PHONY: all eeprom clean $(IMAGE)
@@ -40,6 +42,8 @@ init.o: init.asm machine.h.asm
 l7x4.o: l7x4.asm machine.h.asm
 
 lomem.o: lomem.asm machine.h.asm stdio.h.asm
+
+mmu.o: mmu.asm machine.h.asm
 
 monitor.o: monitor.asm machine.h.asm stdio.h.asm convert.h.asm
 
@@ -70,9 +74,8 @@ $(IMAGE).rom: $(IMAGE)
 	done; \
 	mv $@.$$j $@.1
 	z88dk-appmake +inject --binfile $@.1 --offset $(BASIC_OFFSET) --inject $(IMAGE)_CODE_BASIC.bin --output $@.2
-	rm $@.1
+	rm -f $@.1
 	mv $@.2 $@
-
 
 $(IMAGE): $(MODULES)
 	$(LD) $(LDFLAGS) -o $@ $(MODULES)

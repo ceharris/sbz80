@@ -6,6 +6,7 @@
 		public monitor
 		extern run_basic_cold
 		extern run_basic_warm
+		extern jp_rom
 
 IO_BUFFER_SIZE		equ 80
 PEEK_BUFFER_SIZE	equ 16 
@@ -92,72 +93,73 @@ monitor_err:
 		jr monitor_next
 
 cmd_fill:
-		call next_token
-		call convert_arg
-		jp c,monitor_err
-		ld a,(de)
+		call next_token			; get start address arg
+		call convert_arg		; HL=start address
+		jp c,monitor_err		; go if bad start address
+		ld a,(de)			; A=terminating char
 		or a
-		jr z,cmd_fill_one
-		cp '-'
-		jr z,cmd_fill_range
-		cp '+'
-		jr z,cmd_fill_length
-		ld hl,err_bad_arg
+		jr z,cmd_fill_one		; go if at end of input
+		cp '-'				; specifying a range?
+		jr z,cmd_fill_range		; go if a range
+		cp '+'				; specifying a length?
+		jr z,cmd_fill_length		; go if a length
+		ld hl,err_bad_arg		; otherwise, it's error
 		jp monitor_err
 
 cmd_fill_one:
-		ld e,l
+		ld e,l				; DE=start address
 		ld d,h
-		inc de
+		inc de				; DE=end address (exclusive)
 		jr cmd_fill_mem
 
 cmd_fill_range:
-		ld c,l
+		ld c,l				; BC=start address
 		ld b,h
-		ex de,hl
-		inc hl
-		call validate_arg
-		ex de,hl
-		ld l,c
+		ex de,hl			; HL->terminating char
+		inc hl				; skip terminating char
+		call validate_arg		; convert required arg
+		ex de,hl			; DE=end address (exclusive)
+		ld l,c				; HL=start address
 		ld h,b
 		jr cmd_fill_mem
 
 cmd_fill_length:
-		ld c,l
+		ld c,l				; BC=start address
 		ld b,h
-		ex de,hl
-		call validate_arg
-		add hl,bc
-		ex de,hl
-		ld l,c
+		ex de,hl			; DE=start address
+		call validate_arg		; convert required arg
+		add hl,bc			; HL=end address (exclusive)
+		ex de,hl			; DE=end address (exclusive)
+		ld l,c				; HL=start address
 		ld h,b
 
 cmd_fill_mem:
-		ex de,hl
-		or a
-		sbc hl,de
+		ex de,hl			; swap start and end addresses
+		or a				; clear carry
+		sbc hl,de			; size to fill
 		jr nc,cmd_fill_mem_10
 		jr nz,cmd_fill_mem_10
 		ld hl,err_fill
 		jp monitor_err
 cmd_fill_mem_10:
-		ld c,l
+		ld c,l				; BC=size to fill
 		ld b,h
-		ex de,hl
-		ld e,l
+		ex de,hl			; HL=start address
+		ld e,l				; DE=start address
 		ld d,h
-		inc de
+		inc de				; DE=start address + 1
+		dec bc				; don't overrun by 1
 		push bc
 		push de
 		push hl
-		call next_token
-		call validate_arg
+		call next_token	
+		call validate_arg		; get fill value
 		ld a,l
 		pop hl
 		pop de
 		pop bc
-		ld (hl),a
-		ldir
+		ld (hl),a			; fill first one
+		ldir				; fill the rest
 		jp monitor_next
 
 cmd_in:
@@ -602,14 +604,25 @@ cmd_run_basic:
 		call next_token
 		ld a,(hl)
 		or a
-		jp z,run_basic_cold
+		jr z,cmd_run_basic_cold
 		ld de,modes
 		call match_token
 		or a
 		jr z,mode_err
 		cp WARM_START
-		jp z,run_basic_warm
-		jp run_basic_cold
+		jr z,cmd_run_basic_warm
+
+cmd_run_basic_cold:
+		ld hl,run_basic_cold
+		jr cmd_run_basic_jp
+
+cmd_run_basic_warm:
+		ld hl,run_basic_warm
+
+cmd_run_basic_jp:
+		ld c,1
+		jp jp_rom
+
 
 mode_err:
 		ld hl,err_mode
@@ -949,7 +962,7 @@ title:		db	"\nSBZ80 Mark I System Monitor\n"
 		db	"Copyright (c) 2024 Carl Harris, Jr\n\n",0
 load_prompt:	db	"[Press Ctrl-C to stop]\n",0
 
-		section WORKSPACE_DATA
+		section BSS
 buf_p:		dw io_buf		; pointer to our I/O buffer
 peek_p:		dw peek_buf		; pointer to our peek buffer
 mem_p:		ds 2			; pointer for memory operations

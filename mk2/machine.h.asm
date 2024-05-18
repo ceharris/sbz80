@@ -13,6 +13,9 @@ GPIO_PORT	equ $D0
 MMU_CTRL_PORT	equ $E0
 MMU_PAGE_PORT	equ $F0
 
+ROM_PG_MONITOR	equ 0
+ROM_PG_BASIC	equ 1
+
 WORKSPACE_TOP	equ $2000
 WORKSPACE_SIZE	equ 512
 ;WORKSPACE_TOP	equ $8000
@@ -20,19 +23,14 @@ WORKSPACE_START equ WORKSPACE_TOP - WORKSPACE_SIZE
 
 RAM_START       equ $4000
 
+
+
 		section CODE
 		org     0
 
 		section CODE_LOMEM
-
 		section RODATA
-		section RODATA_END
 		section CODE_USER
-		align   16
-
-                section CODE_BASIC
-                org     WORKSPACE_TOP
-		section CODE_END
 
                 section WORKSPACE
                 org     WORKSPACE_START
@@ -40,7 +38,15 @@ RAM_START       equ $4000
 		section WORKSPACE_DATA
 		section WORKSPACE_END
 
+                section PAGE1
+		section CODE_MONITOR
+                org     WORKSPACE_TOP
+		section CODE_BASIC
+		org	WORKSPACE_TOP
+		section CODE_END
+
 		section BSS
+		org	RAM_START
 		section BSS_END
 
 #endif ; _MACHINE_H
